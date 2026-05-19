@@ -97,22 +97,25 @@ the layout in the spec.
 The target GPU is **device 2** (NVIDIA GeForce RTX 3090, CUDA 12.9). Set
 the data path through `DATA_ROOT`.
 
+Default `DATA_ROOT` (and the `--data_root` CLI default) is
+`/workspace/data/sxq_data/EWELD_labeled_output`. Override with the
+`DATA_ROOT=` env var or `--data_root` flag if your data lives elsewhere.
+
 ```bash
 # main: three baselines × full feature set × H=96
-DATA_ROOT=/path/to/EWELD_labeled_output GPU=2 ./scripts/run_main.sh
+GPU=2 ./scripts/run_main.sh
 
 # ablation 1: weather / event feature contribution
-DATA_ROOT=/path/to/EWELD_labeled_output GPU=2 ./scripts/run_ablation_features.sh
+GPU=2 ./scripts/run_ablation_features.sh
 
 # ablation 2: horizon length
-DATA_ROOT=/path/to/EWELD_labeled_output GPU=2 ./scripts/run_ablation_horizon.sh
+GPU=2 ./scripts/run_ablation_horizon.sh
 ```
 
 Or invoke a single configuration manually:
 
 ```bash
 CUDA_VISIBLE_DEVICES=2 python -m experiment.run \
-    --data_root /path/to/EWELD_labeled_output \
     --model iTransformer \
     --feature_set load_weather_event \
     --pred_len 96 \

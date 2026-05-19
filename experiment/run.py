@@ -3,7 +3,7 @@
 Usage::
 
     python -m experiment.run \
-        --data_root D:/EWELD_labeled_output \
+        --data_root /workspace/data/sxq_data/EWELD_labeled_output \
         --model iTransformer \
         --feature_set load_weather_event \
         --pred_len 96 \
@@ -65,7 +65,11 @@ def fit_normalizers(user_frames, user_city, splits) -> tuple[LoadNormalizer, Wea
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
-    p.add_argument("--data_root", required=True, help="Path to EWELD_labeled_output")
+    p.add_argument(
+        "--data_root",
+        default="/workspace/data/sxq_data/EWELD_labeled_output",
+        help="Path to EWELD_labeled_output (default: /workspace/data/sxq_data/EWELD_labeled_output)",
+    )
     p.add_argument("--model", required=True, choices=MODEL_NAMES)
     p.add_argument("--feature_set", default="load_weather_event",
                    choices=("load", "load_weather", "load_weather_event"))

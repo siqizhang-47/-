@@ -2,7 +2,7 @@
 # Horizon ablation: H = 24 / 48 / 96 (6h / 12h / 24h), full feature set.
 set -euo pipefail
 
-DATA_ROOT="${DATA_ROOT:-D:/EWELD_labeled_output}"
+DATA_ROOT="${DATA_ROOT:-/workspace/data/sxq_data/EWELD_labeled_output}"
 GPU="${GPU:-2}"
 EPOCHS="${EPOCHS:-10}"
 BATCH="${BATCH:-64}"
