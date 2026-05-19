@@ -11,3 +11,16 @@ nsfc-temp.xdv
 nsfc-temp.synctex(busy)
 nsfc-temp.pdf
 nsfc-temp.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+
+# Experiment artifacts
+results/
+logs/
+checkpoints/
+*.ckpt

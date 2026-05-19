@@ -1,0 +1,30 @@
+# Conda environment for the EWELD extreme-weather load forecasting experiment.
+# Target hardware: NVIDIA GeForce RTX 3090 (GPU 2), CUDA driver 12.9.
+# PyTorch 2.4 with the cu121 wheels works against driver 12.9 (drivers are
+# forward-compatible). Bump to cu124 if you have a matching toolkit installed.
+#
+# Create with:   conda env create -f environment.yml
+# Activate with: conda activate eweld
+name: eweld
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - numpy=1.26.*
+  - pandas=2.2.*
+  - scipy=1.13.*
+  - scikit-learn=1.4.*
+  - tqdm
+  - matplotlib
+  - pytorch=2.4.*
+  - pytorch-cuda=12.1
+  - torchvision
+  - cudatoolkit=12.1
+  - pip:
+      - einops>=0.7
+      - reformer-pytorch==1.4.4
+      - sympy
+      - patool
