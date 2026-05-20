@@ -61,7 +61,10 @@ A user is kept iff:
 
 - `seq_len = 96` (lookback 24 h) — fixed.
 - `pred_len ∈ {24, 48, 96}` (6 h / 12 h / 24 h) — horizon ablation.
-- Train stride 4 (≈ one window per hour), val/test stride 1.
+- Train stride 4 (≈ one window per hour). Val/test stride **defaults to 4**
+  here to keep one epoch tractable on a single 3090 — the original spec
+  uses 1 (every 15 min). Override with `--eval_stride 1` or
+  `EVAL_STRIDE=1 ./scripts/run_main.sh` for the spec setting.
 - Channel order: `[<exogenous>..., slot_sin, ..., is_weekend, e01, ..., e12, Load]`
   — `Load` is **last**, matching `features='MS'` in the three baselines.
 - Train / val / test datasets across users are pooled into a single
@@ -100,6 +103,11 @@ the data path through `DATA_ROOT`.
 Default `DATA_ROOT` (and the `--data_root` CLI default) is
 `/workspace/data/sxq_data/EWELD_labeled_output`. Override with the
 `DATA_ROOT=` env var or `--data_root` flag if your data lives elsewhere.
+
+By default each script keeps the first **100** high-quality users
+(deterministic, sorted by user id) and uses `eval_stride=4`. Override
+with `MAX_USERS=` / `EVAL_STRIDE=` env vars or the matching CLI flags.
+Set `MAX_USERS=0` to use every user that passes the quality filter.
 
 ```bash
 # main: three baselines × full feature set × H=96

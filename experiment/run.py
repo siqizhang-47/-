@@ -76,7 +76,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--seq_len", type=int, default=96)
     p.add_argument("--pred_len", type=int, default=96)
     p.add_argument("--train_stride", type=int, default=4)
-    p.add_argument("--eval_stride", type=int, default=1)
+    p.add_argument("--eval_stride", type=int, default=4,
+                   help="val/test sliding-window stride (default 4 to keep runs tractable; spec is 1)")
     p.add_argument("--train_ratio", type=float, default=0.70)
     p.add_argument("--val_ratio", type=float, default=0.10)
     p.add_argument("--test_ratio", type=float, default=0.20)
@@ -87,7 +88,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--num_workers", type=int, default=4)
     p.add_argument("--gpu", type=int, default=2, help="CUDA device index")
     p.add_argument("--seed", type=int, default=2026)
-    p.add_argument("--max_users", type=int, default=0, help="0 = no cap, otherwise debug subset")
+    p.add_argument("--max_users", type=int, default=100,
+                   help="cap the high-quality user set to this many users (0 = no cap)")
     p.add_argument("--results_dir", default="results")
     p.add_argument("--tag", default="", help="extra suffix on results filename")
     return p.parse_args()
