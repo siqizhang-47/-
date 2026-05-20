@@ -68,7 +68,12 @@ def filter_high_quality_users(
         miss_ratio = float(df["miss_mask"].mean())
         if miss_ratio > cfg.max_missing_ratio:
             continue
-        nonzero_ratio = float((df[LOAD_COL].to_numpy() > 0).mean())
+        load_arr = df[LOAD_COL].to_numpy(dtype=np.float64)
+        finite = np.isfinite(load_arr)
+        if not finite.any():
+            # Entire load column is NaN/Inf after upstream cleaning — can't fit.
+            continue
+        nonzero_ratio = float((load_arr[finite] > 0).mean())
         if nonzero_ratio < cfg.min_nonzero_ratio:
             continue
         tr, va, te = time_splits(n, cfg)

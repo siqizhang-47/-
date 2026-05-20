@@ -113,12 +113,29 @@ def build_user_dataframe(csv_path: str | Path, freq: str = "15min") -> Optional[
     for col in WEATHER_COLS:
         if col not in df.columns:
             df[col] = np.nan
+        df[col] = pd.to_numeric(df[col], errors="coerce").astype(np.float32)
     for col in EVENT_LABELS_USED:
         if col not in df.columns:
             df[col] = 0.0
+    df[LOAD_COL] = pd.to_numeric(df[LOAD_COL], errors="coerce").astype(np.float32)
 
-    df[WEATHER_COLS] = df[WEATHER_COLS].interpolate(method="time", limit_direction="both")
-    df[LOAD_COL] = df[LOAD_COL].interpolate(method="time", limit_direction="both")
+    # Fill interior gaps with time-interpolation, then catch edge-of-series gaps
+    # with ffill/bfill. Columns that are entirely NaN for this user (the raw CSV
+    # simply did not carry them) stay NaN here on purpose so the city-level
+    # statistics computed downstream with nanmean/nanstd naturally ignore them;
+    # the residual NaNs are zeroed out *after* z-score in normalize.transform.
+    df[WEATHER_COLS] = (
+        df[WEATHER_COLS]
+        .interpolate(method="time", limit_direction="both")
+        .ffill()
+        .bfill()
+    )
+    df[LOAD_COL] = (
+        df[LOAD_COL]
+        .interpolate(method="time", limit_direction="both")
+        .ffill()
+        .bfill()
+    )
     df[EVENT_LABELS_USED] = df[EVENT_LABELS_USED].fillna(0.0).astype(np.float32)
 
     df = df.reset_index()

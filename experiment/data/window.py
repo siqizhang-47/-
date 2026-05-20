@@ -151,6 +151,11 @@ def build_pooled_dataset(
         elif wcfg.feature_set == "load_weather_event":
             feature_blocks = [weather_norm, time_block, event_block]
         x = np.concatenate(feature_blocks + [load_norm[:, None]], axis=1).astype(np.float32)
+        # Final NaN guard: any residual NaN/Inf (e.g., from a constant series
+        # producing inf during a downstream RevIN-style step) is collapsed to 0
+        # so MSE never receives a non-finite tensor.
+        x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+        events_raw = np.nan_to_num(events_raw, nan=0.0).astype(np.float32)
 
         tr, va, te = splits[uid]
         train_sets.append(
