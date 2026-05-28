@@ -15,7 +15,7 @@ nsfc-temp.pdf
 # PS-BCD data / artifacts
 code/processed_data.xlsx
 code/data/processed/*.npz
-code/ckpt/
+code/ckpt/**/*.pt
 code/results/
 __pycache__/
 *.pyc

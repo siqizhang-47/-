@@ -1,0 +1,113 @@
+{
+  "thresholds": {
+    "pi_zero_max_for_E_W": 0.01,
+    "monotone_rate_min": 0.99,
+    "roundtrip_err_max": 0.01
+  },
+  "results": [
+    {
+      "name": "E",
+      "n_train": 130392,
+      "n_val": 27960,
+      "n_params": 20885,
+      "epochs": 32,
+      "time_s": 24.0,
+      "best_val": 0.10915839672088623,
+      "pi_zero_max": 0.0,
+      "monotone_rate": 1.0,
+      "roundtrip_err": 6.080232850536049e-08,
+      "zi": false
+    },
+    {
+      "name": "W",
+      "n_train": 130392,
+      "n_val": 27960,
+      "n_params": 20501,
+      "epochs": 36,
+      "time_s": 26.0,
+      "best_val": 0.07835070043802261,
+      "pi_zero_max": 0.0,
+      "monotone_rate": 1.0,
+      "roundtrip_err": 1.085396888811374e-06,
+      "zi": false
+    },
+    {
+      "name": "C_tilde",
+      "n_train": 65880,
+      "n_val": 12864,
+      "n_params": 20886,
+      "epochs": 37,
+      "time_s": 12.7,
+      "best_val": 0.4229663759469986,
+      "pi_zero_max": 0.9999986886978149,
+      "monotone_rate": 1.0,
+      "roundtrip_err": 1.0881572976018106e-08,
+      "zi": true
+    },
+    {
+      "name": "H_tilde",
+      "n_train": 64512,
+      "n_val": 15096,
+      "n_params": 20758,
+      "epochs": 52,
+      "time_s": 17.1,
+      "best_val": 0.5768510699272156,
+      "pi_zero_max": 0.9993447661399841,
+      "monotone_rate": 1.0,
+      "roundtrip_err": 1.2197302567074075e-05,
+      "zi": true
+    },
+    {
+      "name": "g_GE",
+      "n_train": 59130,
+      "n_val": 12675,
+      "n_params": 20246,
+      "epochs": 41,
+      "time_s": 13.2,
+      "best_val": 0.5782734602689743,
+      "pi_zero_max": 0.9946755170822144,
+      "monotone_rate": 1.0,
+      "roundtrip_err": 1.058839274037382e-07,
+      "zi": true
+    },
+    {
+      "name": "g_FC",
+      "n_train": 63912,
+      "n_val": 13704,
+      "n_params": 20246,
+      "epochs": 9,
+      "time_s": 3.2,
+      "best_val": 0.775812417268753,
+      "pi_zero_max": 0.060560472309589386,
+      "monotone_rate": 1.0,
+      "roundtrip_err": 1.787580572454317e-08,
+      "zi": true
+    },
+    {
+      "name": "G_AC",
+      "n_train": 70640,
+      "n_val": 15244,
+      "n_params": 20374,
+      "epochs": 13,
+      "time_s": 4.7,
+      "best_val": 0.215333953499794,
+      "pi_zero_max": 0.017984306439757347,
+      "monotone_rate": 1.0,
+      "roundtrip_err": 1.529231674624043e-08,
+      "zi": true
+    },
+    {
+      "name": "g_B",
+      "n_train": 130392,
+      "n_val": 27960,
+      "n_params": 20630,
+      "epochs": 11,
+      "time_s": 8.0,
+      "best_val": 0.33421339094638824,
+      "pi_zero_max": 0.2619204819202423,
+      "monotone_rate": 1.0,
+      "roundtrip_err": 3.98028632275782e-08,
+      "zi": true
+    }
+  ]
+}
