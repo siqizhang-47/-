@@ -37,9 +37,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-torch.set_num_threads(4)
 torch.manual_seed(0)
 np.random.seed(0)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(0)
+    torch.backends.cudnn.benchmark = True
 
 # ----------------------------------------------------------------------------
 # Paths and constants
@@ -55,7 +57,7 @@ KAPPA_GE = 0.5      # GE waste-heat recovery fraction
 KAPPA_FC = 0.5      # FC waste-heat recovery fraction
 RHO_H = 1.0         # heat-load fraction borne by boiler (initial guess)
 
-DEVICE = torch.device("cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ----------------------------------------------------------------------------
 # Data loading + auxiliary computation
@@ -271,7 +273,7 @@ TAU_GRID = torch.linspace(0.025, 0.975, 19)  # 19 quantile levels for training
 
 
 def train_one(name: str, Xtr_np, ytr_np, Xva_np, yva_np, zi: bool,
-              epochs: int = 60, patience: int = 8, batch: int = 1024,
+              epochs: int = 60, patience: int = 8, batch: int = 4096,
               lr: float = 1e-3, weight_decay: float = 1e-4,
               K: int = 20, hidden: int = 128) -> dict:
     t0 = time.time()
@@ -290,11 +292,11 @@ def train_one(name: str, Xtr_np, ytr_np, Xva_np, yva_np, zi: bool,
     y_pos_std = float(ytr_np[ytr_np > 0].std()) if (ytr_np > 0).any() else 1.0
     y_pos_std = max(y_pos_std, 1e-3)
 
-    # Convert to tensors
-    Xtr_t = torch.from_numpy(Xtr.astype(np.float32))
-    ytr_t = torch.from_numpy(ytr_np.astype(np.float32))
-    Xva_t = torch.from_numpy(Xva.astype(np.float32))
-    yva_t = torch.from_numpy(yva_np.astype(np.float32))
+    # Convert to tensors (move full dataset to GPU; <100MB per variable)
+    Xtr_t = torch.from_numpy(Xtr.astype(np.float32)).to(DEVICE)
+    ytr_t = torch.from_numpy(ytr_np.astype(np.float32)).to(DEVICE)
+    Xva_t = torch.from_numpy(Xva.astype(np.float32)).to(DEVICE)
+    yva_t = torch.from_numpy(yva_np.astype(np.float32)).to(DEVICE)
 
     in_dim = Xtr_t.shape[1]
     model = QuantileSplineNet(in_dim, K=K, hidden=hidden, zero_inflated=zi).to(DEVICE)
@@ -311,13 +313,13 @@ def train_one(name: str, Xtr_np, ytr_np, Xva_np, yva_np, zi: bool,
     for epoch in range(1, epochs + 1):
         # ---- training ----
         model.train()
-        perm = torch.randperm(n_tr)
+        perm = torch.randperm(n_tr, device=DEVICE)
         train_loss = 0.0
         n_batches = 0
         for i in range(0, n_tr, batch):
             idx = perm[i:i + batch]
-            xb = Xtr_t[idx]
-            yb = ytr_t[idx]
+            xb = Xtr_t.index_select(0, idx)
+            yb = ytr_t.index_select(0, idx)
             Q_knots, zlogit = model(xb)
 
             # pinball on positive subset
@@ -329,7 +331,7 @@ def train_one(name: str, Xtr_np, ytr_np, Xva_np, yva_np, zi: bool,
                 Qp_std = (Qp - y_pos_mean) / y_pos_std
                 pin = pinball_loss(Qp_std, yp, tau_grid)
             else:
-                pin = torch.tensor(0.0)
+                pin = torch.tensor(0.0, device=DEVICE)
 
             loss = pin
             if zi:
@@ -382,18 +384,19 @@ def train_one(name: str, Xtr_np, ytr_np, Xva_np, yva_np, zi: bool,
         Q_knots, zlogit = model(Xva_t)
         # (a) zero probability for E should be everywhere < 0.01 (info)
         if zi:
-            pi_zero = torch.sigmoid(zlogit).numpy()
+            pi_zero = torch.sigmoid(zlogit).detach().cpu().numpy()
         else:
             pi_zero = np.zeros(n_va, dtype=np.float32)
         # (b) quantile monotonicity check: per-sample monotone in tau
-        taus = torch.linspace(0.0, 1.0, 21)
-        Q_grid = Q_at_tau(Q_knots, taus.to(DEVICE))             # (B, 21)
+        taus = torch.linspace(0.0, 1.0, 21, device=DEVICE)
+        Q_grid = Q_at_tau(Q_knots, taus)                        # (B, 21)
         mono_rate = float((Q_grid[:, 1:] >= Q_grid[:, :-1] - 1e-6).all(dim=1).float().mean())
         # (c) CDF-ICDF roundtrip on 1000 random points
         rng = np.random.default_rng(0)
-        sub_idx = rng.integers(0, n_va, size=1000)
-        u_rand = torch.from_numpy(rng.uniform(0.02, 0.98, size=1000).astype(np.float32))
-        Q_sub = Q_knots[sub_idx]
+        sub_np = rng.integers(0, n_va, size=1000)
+        sub_idx = torch.from_numpy(sub_np).long().to(DEVICE)
+        u_rand = torch.from_numpy(rng.uniform(0.02, 0.98, size=1000).astype(np.float32)).to(DEVICE)
+        Q_sub = Q_knots.index_select(0, sub_idx)
         y_sample = Q_at_tau(Q_sub, u_rand).diagonal()  # (1000,)
         u_back = cdf_at_y(Q_sub, y_sample)             # (1000,)
         roundtrip_err = float((u_rand - u_back).abs().mean())
@@ -426,6 +429,8 @@ def train_one(name: str, Xtr_np, ytr_np, Xva_np, yva_np, zi: bool,
 # Main
 # ----------------------------------------------------------------------------
 def main():
+    print(f"[device] {DEVICE}"
+          + (f"  ({torch.cuda.get_device_name(0)})" if DEVICE.type == "cuda" else ""))
     print("[load splits]")
     tr = load_split("train")
     va = load_split("val")
