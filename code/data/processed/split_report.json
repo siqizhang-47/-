@@ -1,0 +1,133 @@
+{
+  "source": "/workspace/code/processed_data.xlsx",
+  "raw_hours": 187752,
+  "kept_days": 7761,
+  "dropped_days_due_to_NaN": 62,
+  "Y_names": [
+    "E",
+    "C",
+    "H",
+    "W",
+    "P_PV",
+    "g_GE",
+    "P_GE",
+    "g_FC",
+    "P_FC",
+    "g_AC1",
+    "g_AC2",
+    "g_AC3",
+    "g_B",
+    "P_grid"
+  ],
+  "C_names": [
+    "T_out",
+    "I",
+    "RH",
+    "v",
+    "h",
+    "d",
+    "w",
+    "s",
+    "a_GE",
+    "a_FC"
+  ],
+  "regimes": {
+    "A": {
+      "years": "2001-06..2011-12",
+      "n_total": 3804,
+      "n_train": 2663,
+      "n_val": 571,
+      "n_test": 570,
+      "train_range": [
+        "2001-06-01",
+        "2008-09-14"
+      ],
+      "val_range": [
+        "2008-09-15",
+        "2010-04-08"
+      ],
+      "test_range": [
+        "2010-04-09",
+        "2011-12-31"
+      ]
+    },
+    "B": {
+      "years": "2012-01..2016-12",
+      "n_total": 1827,
+      "n_train": 1279,
+      "n_val": 274,
+      "n_test": 274,
+      "train_range": [
+        "2012-01-01",
+        "2015-07-02"
+      ],
+      "val_range": [
+        "2015-07-03",
+        "2016-04-01"
+      ],
+      "test_range": [
+        "2016-04-02",
+        "2016-12-31"
+      ]
+    },
+    "C": {
+      "years": "2017-01..2022-10",
+      "n_total": 2130,
+      "n_train": 1491,
+      "n_val": 320,
+      "n_test": 319,
+      "train_range": [
+        "2017-01-01",
+        "2021-01-30"
+      ],
+      "val_range": [
+        "2021-01-31",
+        "2021-12-16"
+      ],
+      "test_range": [
+        "2021-12-17",
+        "2022-10-31"
+      ]
+    }
+  },
+  "total_train": 5433,
+  "total_val": 1165,
+  "total_test": 1163,
+  "shoulder_months": [
+    4,
+    5,
+    10,
+    11
+  ],
+  "shoulder_CH_overlap_rate": 1.6068903458028024e-05,
+  "shoulder_model_needed": false,
+  "M_C": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "M_H": [
+    1,
+    2,
+    3,
+    4,
+    11,
+    12
+  ],
+  "checks": {
+    "regime1_sum_equals_total": true,
+    "regime2_sum_equals_total": true,
+    "regime3_sum_equals_total": true,
+    "regime1_no_leak": true,
+    "regime2_no_leak": true,
+    "regime3_no_leak": true,
+    "Y_no_nan": true,
+    "gFC_zero_in_regimeBC_rate": 1.0,
+    "gGE_zero_in_regimeC_rate": 1.0,
+    "E_min": 63.0,
+    "shoulder_CH_overlap_rate": 1.6068903458028024e-05
+  }
+}

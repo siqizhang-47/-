@@ -11,3 +11,11 @@ nsfc-temp.xdv
 nsfc-temp.synctex(busy)
 nsfc-temp.pdf
 nsfc-temp.pdf
+
+# PS-BCD data / artifacts
+code/processed_data.xlsx
+code/data/processed/*.npz
+code/ckpt/
+code/results/
+__pycache__/
+*.pyc
