@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.npz
+*.npy
+*.pt
+*.json
+sc_cdiff_artifacts/

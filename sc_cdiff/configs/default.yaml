@@ -1,0 +1,102 @@
+# SC-CDiff default configuration
+# Corresponds to SC_CDiff_TII_revised_research_plan_v3 and the implementation plan.
+
+paths:
+  raw_xlsx: /workspace/code/processed_data.xlsx   # user environment path
+  artifacts: /workspace/code/sc_cdiff_artifacts    # all generated files go here
+  # individual artifact filenames (kept under <artifacts>/)
+  dataset_npz: dataset.npz
+  norm_stats: norm_stats.json
+  yhat_npy: yhat_full.npy        # continuous [187752,5] sample-out-of-sample point forecast
+  what_npy: what_full.npy        # continuous [187752,6] predicted-weather proxy (main task)
+  woracle_npy: woracle_full.npy  # continuous [187752,6] true weather (oracle ablation only)
+  ckpt_best: ckpt_best.pt
+  train_log: train_log.csv
+
+device: cuda:2          # RTX 3090, board index 2; falls back to cpu if unavailable
+seed: 42
+
+# ---- channel / feature layout (fixed) ----
+channels: [PV, E, C, H, HW]      # column order in Yfull
+n_channels: 5
+horizon: 24                       # hours per day-scene
+pv_idx: 0
+e_idx: 1
+c_idx: 2
+h_idx: 3
+hw_idx: 4
+
+# raw-column indices in the Merged sheet (0-based)
+cols:
+  Y: [11, 1, 2, 3, 4]            # PV, E, C, H, HW
+  irr: 15                         # horizontal solar irradiation (W)
+  temp: 16
+  humidity: 17
+  windspeed: 18
+  winddir: 19
+  era_flags: [20, 21, 22]         # pv/ge/fc normal_operation (NOT used as gates)
+
+# weather feature vector: irr, temp, humidity, windspeed, winddir_sin, winddir_cos
+n_weather: 6
+# calendar feature vector: hour_sin, hour_cos, month_sin, month_cos,
+#                          weekday_sin, weekday_cos, is_weekend, is_daytime
+n_calendar: 8
+
+# ---- device-era timeline (documented retirement line, plan §4 / C7) ----
+# era 0: <= 2011-11  (FC + GE + PV)
+# era 1: 2011-12 .. 2016-07  (GE + PV)
+# era 2: >= 2016-08  (PV only, grid-dominated)
+era_bounds:
+  era0_end: "2011-11-30 23:00:00"
+  era1_end: "2016-07-31 23:00:00"
+
+# ---- temporal split (plan §8.1) ----
+split:
+  train_end: "2017-12-31 23:00:00"
+  val_end:   "2019-12-31 23:00:00"
+  # test = remainder (2020-01 -> 2022-10)
+
+# ---- sliding-window augmentation (plan, training only) ----
+window:
+  stride: 6        # hours between window starts on the training tape
+
+# ---- PV physical cap (kW). Installed 153 kW; allow small headroom. ----
+pv_cap: 160.0
+
+# ---- diffusion ----
+diffusion:
+  n_steps: 200
+  schedule: cosine
+
+# ---- model ----
+model:
+  d_model: 128
+  n_blocks: 4
+  n_heads: 4
+  ffn_mult: 4
+  era_emb_dim: 32
+
+# ---- training ----
+train:
+  batch_size: 64
+  lr: 1.0e-4
+  weight_decay: 1.0e-6
+  epochs: 200
+  ema_decay: 0.999
+  grad_clip: 1.0
+  num_workers: 4
+  # loss weights
+  lambda_gate: 1.0
+  lambda_corr: 0.1
+  lambda_phy: 0.05
+  # early stopping on validation Energy Score
+  val_every: 5
+  val_scenarios: 20        # scenarios per val day for the early-stop ES estimate
+  val_subset_days: 120     # subsample val days for speed during early-stop checks
+  patience: 6
+
+# ---- sampling / evaluation ----
+sample:
+  ks: [0, 6, 12, 18]       # forecast horizons (observed-prefix length)
+  n_scenarios: 100         # M scenarios per test day per task
+  batch_days: 32           # day-batch size during sampling
