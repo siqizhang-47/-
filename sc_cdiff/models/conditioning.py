@@ -20,9 +20,10 @@ class ConditioningEncoder(nn.Module):
         self.era_emb = nn.Embedding(n_era, d_model)  # added (broadcast over time)
         self.d_model = d_model
 
-    def forward(self, W, CAL, Yhat, era):
+    def forward(self, W, CAL, Yhat, era, use_era=True):
         # W:[B,6,24] CAL:[B,8,24] Yhat:[B,5,24] era:[B]
         side = torch.cat([W, CAL, Yhat], dim=1)        # [B,19,24]
         h = self.act(self.conv(side))                  # [B,D,24]
-        h = h + self.era_emb(era).unsqueeze(-1)        # broadcast era over hours
+        if use_era:
+            h = h + self.era_emb(era).unsqueeze(-1)    # broadcast era over hours
         return h

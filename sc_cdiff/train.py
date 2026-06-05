@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+from .artifacts import ckpt_path
 from .data.build_dataset import _load_cfg
 from .data.dataset import AlignedDays, TrainWindows
 from .ema import EMA
@@ -58,6 +59,11 @@ def main():
     ap.add_argument("--artifacts", default=None)
     ap.add_argument("--device", default=None)
     ap.add_argument("--epochs", type=int, default=None)
+    ap.add_argument("--tag", default=None, help="method_tag for artifact names")
+    ap.add_argument("--disable_gate", action="store_true")
+    ap.add_argument("--disable_era", action="store_true")
+    ap.add_argument("--disable_conditions", action="store_true")
+    ap.add_argument("--lambda_corr", type=float, default=None)
     args = ap.parse_args()
     cfg = _load_cfg(args.config)
     if args.artifacts:
@@ -66,6 +72,17 @@ def main():
         cfg["device"] = args.device
     if args.epochs:
         cfg["train"]["epochs"] = args.epochs
+    if args.tag:
+        cfg["method_tag"] = args.tag
+    cfg.setdefault("ablation", {})
+    if args.disable_gate:
+        cfg["ablation"]["disable_gate"] = True
+    if args.disable_era:
+        cfg["ablation"]["disable_era"] = True
+    if args.disable_conditions:
+        cfg["ablation"]["disable_conditions"] = True
+    if args.lambda_corr is not None:
+        cfg["train"]["lambda_corr"] = args.lambda_corr
 
     set_seed(cfg["seed"])
     device = pick_device(cfg["device"])
@@ -84,8 +101,8 @@ def main():
     opt = torch.optim.AdamW(model.parameters(), lr=cfg["train"]["lr"],
                             weight_decay=cfg["train"]["weight_decay"])
 
-    log_path = os.path.join(paths["artifacts"], paths["train_log"])
-    ckpt_path = os.path.join(paths["artifacts"], paths["ckpt_best"])
+    log_path = os.path.join(paths["artifacts"], f"train_log_{cfg.get('method_tag','sccdiff')}.csv")
+    ckpt_file = ckpt_path(cfg)
     best_es, bad = float("inf"), 0
     with open(log_path, "w", newline="") as f:
         writer = csv.writer(f)
@@ -120,7 +137,7 @@ def main():
                     best_es, bad = val_es, 0
                     torch.save({"model": model.state_dict(),
                                 "ema": ema.state_dict(), "cfg": cfg,
-                                "val_es": val_es, "epoch": epoch}, ckpt_path)
+                                "val_es": val_es, "epoch": epoch}, ckpt_file)
                     print(f"[train] epoch {epoch} val_es={val_es:.4f} *saved*")
                 else:
                     bad += 1
@@ -133,7 +150,7 @@ def main():
             if bad >= cfg["train"]["patience"]:
                 print(f"[train] early stop at epoch {epoch}")
                 break
-    print(f"[train] done. best val_es={best_es:.4f} -> {ckpt_path}")
+    print(f"[train] done. best val_es={best_es:.4f} -> {ckpt_file}")
 
 
 if __name__ == "__main__":

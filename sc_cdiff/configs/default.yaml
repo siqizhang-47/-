@@ -95,6 +95,19 @@ train:
   val_subset_days: 120     # subsample val days for speed during early-stop checks
   patience: 6
 
+# ---- ablation switches (all false = full SC-CDiff) ----
+# disable_gate       : drop the zero-inflation gate (no Bernoulli cool/heat gating)
+# disable_era        : zero the device-era embeddings (model cannot see e_d)
+# disable_conditions : zero W/CAL/Yhat external conditioning (near-unconditional)
+# (w/o corr is achieved by setting train.lambda_corr: 0)
+ablation:
+  disable_gate: false
+  disable_era: false
+  disable_conditions: false
+
+# tag used in artifact filenames: scenarios_<tag>_<split>_k<k>.npz / eval_<tag>_...
+method_tag: sccdiff
+
 # ---- sampling / evaluation ----
 sample:
   ks: [0, 6, 12, 18]       # forecast horizons (observed-prefix length)

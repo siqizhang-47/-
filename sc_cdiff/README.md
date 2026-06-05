@@ -87,6 +87,62 @@ them from evaluation**.
   weather is saved separately for the oracle upper-bound ablation only
   (`use_oracle_weather: true` in config).
 
+## Ablations and baselines
+
+### Ablations (one switch each, plan §7)
+
+```bash
+# run the full ablation grid (train+sample+eval+master table):
+python -m sc_cdiff.run_ablations --device cuda:2
+# or a subset:
+python -m sc_cdiff.run_ablations --device cuda:2 --only sccdiff wo_gate wo_corr
+```
+
+Variants: `sccdiff` (full), `wo_gate` (`--disable_gate`), `wo_corr`
+(`--lambda_corr 0`), `wo_era` (`--disable_era`), `wo_cond`
+(`--disable_conditions`), `oracle_weather` (true weather upper bound). The
+switches also work directly on `train`/`sample`:
+
+```bash
+python -m sc_cdiff.train  --device cuda:2 --tag wo_gate --disable_gate
+python -m sc_cdiff.sample --device cuda:2 --tag wo_gate --disable_gate
+python -m sc_cdiff.eval.run_eval --tag wo_gate
+```
+
+### Baselines (plan §8.4)
+
+```bash
+bash sc_cdiff/scripts/run_baselines.sh          # all baselines + master table
+```
+
+- **Statistical** (no training): `historical`, `weather_knn`, `copula`
+  — `python -m sc_cdiff.baselines.statistical --method <m>`
+- **CSDI**: SC-CDiff backbone with `--disable_gate --disable_era --lambda_corr 0`
+- **SSSD** (state-space) / **TimeGrad** (autoregressive):
+  `python -m sc_cdiff.baselines.run_diffusion --model {sssd,timegrad}`
+- **WGAN** / **cWGAN-GP**:
+  `python -m sc_cdiff.baselines.gan --method {wgan,cwgan_gp}`
+
+Every method writes `scenarios_<tag>_<split>_k<k>.npz` in the same format, so the
+shared eval suite scores them identically. SSSD/TimeGrad/CSDI are compact
+re-implementations (documented as such in their module docstrings).
+
+### Master results table (plan §13)
+
+```bash
+python -m sc_cdiff.eval.collect_results --split test --k 0
+# -> prints a sorted table and writes master_results_test_k0.csv
+```
+
+## Notes / gotchas
+
+- **Sampling batch size and the CUDA MHA limit**: the fused MultiHeadAttention
+  kernel fails with `CUDA error: invalid configuration argument` when its batch
+  dimension exceeds ~65535. At sampling this dimension is
+  `batch_days × n_scenarios × 24`. The attention layer auto-chunks above
+  `MAX_ATTN_BATCH` (denoiser.py) so any `n_scenarios` works; if you still hit
+  GPU memory limits, lower `sample.batch_days` in the config.
+
 ## Key design points
 
 - **Sliding-window augmentation** (training only; eval uses aligned natural days).

@@ -56,6 +56,17 @@ class SCCDiff(nn.Module):
         self.e_idx, self.hw_idx = cfg["e_idx"], cfg["hw_idx"]
         self.pv_cap = cfg["pv_cap"]
         self.lw = cfg["train"]
+        ab = cfg.get("ablation", {}) or {}
+        self.disable_gate = bool(ab.get("disable_gate", False))
+        self.disable_era = bool(ab.get("disable_era", False))
+        self.disable_conditions = bool(ab.get("disable_conditions", False))
+        self.use_era = not self.disable_era
+
+    def _mask_conditions(self, W, CAL, Yhat):
+        """w/o-conditions ablation: zero the external conditioning signals."""
+        if self.disable_conditions:
+            return torch.zeros_like(W), torch.zeros_like(CAL), torch.zeros_like(Yhat)
+        return W, CAL, Yhat
 
     def to(self, *a, **k):
         super().to(*a, **k)
@@ -72,24 +83,28 @@ class SCCDiff(nn.Module):
         B = Y0.shape[0]
         dev = Y0.device
 
-        h_cond = self.enc(W, CAL, Yhat, era)
+        W, CAL, Yhat = self._mask_conditions(W, CAL, Yhat)
+        h_cond = self.enc(W, CAL, Yhat, era, use_era=self.use_era)
         t = torch.randint(0, self.diff.N, (B,), device=dev)
         eps = torch.randn_like(Y0)
         Yt = self.diff.q_sample(Y0, t, eps)
         cond_val = M * Y0 + (1 - M) * Yt      # CSDI-style: clean truth at observed cells
-        eps_hat = self.denoiser(cond_val, t, M, Yhat, h_cond, era)
+        eps_hat = self.denoiser(cond_val, t, M, Yhat, h_cond, era, use_era=self.use_era)
 
         # diffusion loss only on "to-generate AND valid" cells
         w = (1 - M) * m
         denom = w.sum().clamp_min(1.0)
         L_diff = (w * (eps - eps_hat) ** 2).sum() / denom
 
-        # gate loss (cool/heat) on to-generate hours only
-        gate_logits = self.gate(h_cond)       # [B,2,24]
-        gate_w = (1 - M[:, self.c_idx])       # [B,24] (same time-mask for both)
-        gl = F.binary_cross_entropy_with_logits(
-            gate_logits, torch.stack([Gc, Gh], dim=1), reduction="none")
-        L_gate = (gl * gate_w[:, None, :]).sum() / gate_w.sum().clamp_min(1.0)
+        # gate loss (cool/heat) on to-generate hours only -- skipped if gate disabled
+        if self.disable_gate:
+            L_gate = Y0.new_zeros(())
+        else:
+            gate_logits = self.gate(h_cond)       # [B,2,24]
+            gate_w = (1 - M[:, self.c_idx])       # [B,24] (same time-mask for both)
+            gl = F.binary_cross_entropy_with_logits(
+                gate_logits, torch.stack([Gc, Gh], dim=1), reduction="none")
+            L_gate = (gl * gate_w[:, None, :]).sum() / gate_w.sum().clamp_min(1.0)
 
         # seasonal correlation regularizer (Tweedie one-step x0 estimate)
         x0_hat = self.diff.x0_from_eps(Yt, t, eps_hat)
@@ -141,18 +156,23 @@ class SCCDiff(nn.Module):
         Wr, CALr, Yhatr, erar = rep(W), rep(CAL), rep(Yhat), rep(era)
         Mr, irrr, Yobsr = rep(M), rep(irr), rep(Yobs)
         Yrawr = rep(batch["Yraw"])             # raw observed truth for the prefix
-        h_cond = self.enc(Wr, CALr, Yhatr, erar)
+        Wr, CALr, Yhatr = self._mask_conditions(Wr, CALr, Yhatr)
+        h_cond = self.enc(Wr, CALr, Yhatr, erar, use_era=self.use_era)
 
-        # gate -> sample Bernoulli activations once
-        pi = torch.sigmoid(self.gate(h_cond))            # [B*n,2,24]
-        Bc = torch.bernoulli(pi[:, 0])
-        Bh = torch.bernoulli(pi[:, 1])
+        # gate -> sample Bernoulli activations once (no gating if disabled)
+        if self.disable_gate:
+            Bc = torch.ones(B * n, 24, device=dev)
+            Bh = torch.ones(B * n, 24, device=dev)
+        else:
+            pi = torch.sigmoid(self.gate(h_cond))        # [B*n,2,24]
+            Bc = torch.bernoulli(pi[:, 0])
+            Bh = torch.bernoulli(pi[:, 1])
 
         Y = torch.randn(B * n, 5, 24, device=dev)
         for t in reversed(range(self.diff.N)):
             cond_val = Mr * Yobsr + (1 - Mr) * Y
             t_b = torch.full((B * n,), t, device=dev, dtype=torch.long)
-            eps_hat = self.denoiser(cond_val, t_b, Mr, Yhatr, h_cond, erar)
+            eps_hat = self.denoiser(cond_val, t_b, Mr, Yhatr, h_cond, erar, use_era=self.use_era)
             Y = self.diff.p_step(Y, eps_hat, t)
             Y = Mr * Yobsr + (1 - Mr) * Y                # inpaint observed each step
 

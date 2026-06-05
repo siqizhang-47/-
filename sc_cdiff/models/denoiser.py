@@ -13,6 +13,12 @@ import torch
 import torch.nn as nn
 
 
+# Max batch dimension for a single fused MultiheadAttention call. Above the CUDA
+# grid limit (~65535) the kernel raises "invalid configuration argument"; we
+# chunk the call to stay under this. CPU is unaffected but chunking is cheap.
+MAX_ATTN_BATCH = 32768
+
+
 def sinusoidal_embedding(t, dim):
     # t: [B] (float or long). Returns [B, dim]
     device = t.device
@@ -47,7 +53,20 @@ class _Attn(nn.Module):
 
     def forward(self, x):  # x:[N, L, D]
         h = self.norm(x)
-        out, _ = self.attn(h, h, h, need_weights=False)
+        N = h.shape[0]
+        # The fused MultiheadAttention CUDA kernel launches a grid indexed by the
+        # batch dimension and fails with "invalid configuration argument" when N
+        # exceeds the CUDA grid limit (~65535). This happens at sampling time,
+        # where N = batch_days * n_scenarios * (24 or 5). Chunk to stay safe.
+        if N <= MAX_ATTN_BATCH:
+            out, _ = self.attn(h, h, h, need_weights=False)
+        else:
+            outs = []
+            for i in range(0, N, MAX_ATTN_BATCH):
+                hi = h[i:i + MAX_ATTN_BATCH]
+                oi, _ = self.attn(hi, hi, hi, need_weights=False)
+                outs.append(oi)
+            out = torch.cat(outs, dim=0)
         return x + out
 
 
@@ -95,7 +114,7 @@ class Denoiser(nn.Module):
         self.out = nn.Linear(d_model, 1)
         self.register_buffer("chan_ids", torch.arange(n_channels), persistent=False)
 
-    def forward(self, cond_val, t, M, Yhat, h_cond, era):
+    def forward(self, cond_val, t, M, Yhat, h_cond, era, use_era=True):
         # cond_val,M,Yhat:[B,5,24]  t:[B]  h_cond:[B,D,24]  era:[B]
         B, C, T = cond_val.shape
         cell = torch.stack([cond_val, M, Yhat], dim=-1)   # [B,5,24,3]
@@ -103,7 +122,9 @@ class Denoiser(nn.Module):
         x = x + self.chan_emb(self.chan_ids)[None, :, None, :]
         x = x + h_cond.permute(0, 2, 1)[:, None, :, :]     # broadcast over channels
         t_emb = self.t_mlp(sinusoidal_embedding(t, self.d_model))  # [B,D]
-        cond = torch.cat([t_emb, self.era_emb(era)], dim=-1)        # [B, D+era]
+        era_e = self.era_emb(era) if use_era else torch.zeros(
+            B, self.era_emb.embedding_dim, device=cond_val.device)
+        cond = torch.cat([t_emb, era_e], dim=-1)                    # [B, D+era]
         for blk in self.blocks:
             x = blk(x, cond)
         eps_hat = self.out(x).squeeze(-1)                  # [B,5,24]

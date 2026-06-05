@@ -10,6 +10,7 @@ import os
 import numpy as np
 import pandas as pd
 
+from ..artifacts import eval_path, scen_path
 from ..data.build_dataset import _load_cfg
 from .joint import (mean_energy_score, mean_variogram_score, seasonal_corr_error)
 from .marginal import marginal_metrics
@@ -27,8 +28,7 @@ def _months_seasons(start, n_hours_start="2001-06-01 00:00:00"):
 
 
 def evaluate(cfg, split="test", k=0, do_decision=True):
-    paths = cfg["paths"]
-    f = os.path.join(paths["artifacts"], f"scenarios_{split}_k{k}.npz")
+    f = scen_path(cfg, split, k)
     d = np.load(f)
     scen, truth, irr, start = d["scenarios"], d["truth"], d["irr"], d["start"]
     months, season = _months_seasons(start)
@@ -46,7 +46,9 @@ def evaluate(cfg, split="test", k=0, do_decision=True):
     if do_decision and k == 0:
         report["decision"] = decision_metrics(scen, truth)
 
-    out = os.path.join(paths["artifacts"], f"eval_{split}_k{k}.json")
+    report["_meta"] = {"tag": cfg.get("method_tag", "sccdiff"), "split": split, "k": k,
+                       "n_days": int(scen.shape[0]), "n_scenarios": int(scen.shape[1])}
+    out = eval_path(cfg, split, k)
     with open(out, "w") as fh:
         json.dump(report, fh, indent=2)
 
@@ -73,10 +75,13 @@ def main():
     ap.add_argument("--artifacts", default=None)
     ap.add_argument("--split", default="test")
     ap.add_argument("--k", type=int, default=None, help="evaluate a single k; default all configured")
+    ap.add_argument("--tag", default=None, help="method_tag to evaluate")
     args = ap.parse_args()
     cfg = _load_cfg(args.config)
     if args.artifacts:
         cfg["paths"]["artifacts"] = args.artifacts
+    if args.tag:
+        cfg["method_tag"] = args.tag
     ks = [args.k] if args.k is not None else cfg["sample"]["ks"]
     for k in ks:
         evaluate(cfg, args.split, k)

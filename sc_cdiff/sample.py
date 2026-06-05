@@ -7,6 +7,7 @@ import os
 import numpy as np
 import torch
 
+from .artifacts import ckpt_load_path, scen_path
 from .data.build_dataset import _load_cfg
 from .data.dataset import AlignedDays
 from .models.sc_cdiff import SCCDiff
@@ -19,7 +20,7 @@ def sample_split(cfg, device, split="test", use_ema=True):
     paths = cfg["paths"]
     norm = Normalizer.load(os.path.join(paths["artifacts"], paths["norm_stats"]))
     model = SCCDiff(cfg, norm).to(device)
-    ckpt = torch.load(os.path.join(paths["artifacts"], paths["ckpt_best"]), map_location=device)
+    ckpt = torch.load(ckpt_load_path(cfg), map_location=device, weights_only=False)
     model.load_state_dict(ckpt["ema"] if use_ema else ckpt["model"])
     model.eval()
     model.norm = norm
@@ -38,7 +39,7 @@ def sample_split(cfg, device, split="test", use_ema=True):
             irr_all.append(batch["irr"].cpu().numpy())
             start_all.append(batch["start"].cpu().numpy())
         scen = np.concatenate(scen_all, 0)
-        out = os.path.join(paths["artifacts"], f"scenarios_{split}_k{k}.npz")
+        out = scen_path(cfg, split, k)
         np.savez_compressed(out, scenarios=scen,
                             truth=np.concatenate(true_all, 0),
                             irr=np.concatenate(irr_all, 0),
@@ -56,12 +57,22 @@ def main():
     ap.add_argument("--artifacts", default=None)
     ap.add_argument("--device", default=None)
     ap.add_argument("--split", default="test")
+    ap.add_argument("--tag", default=None, help="method_tag (must match training)")
+    ap.add_argument("--disable_gate", action="store_true")
+    ap.add_argument("--disable_era", action="store_true")
+    ap.add_argument("--disable_conditions", action="store_true")
     args = ap.parse_args()
     cfg = _load_cfg(args.config)
     if args.artifacts:
         cfg["paths"]["artifacts"] = args.artifacts
     if args.device:
         cfg["device"] = args.device
+    if args.tag:
+        cfg["method_tag"] = args.tag
+    cfg.setdefault("ablation", {})
+    for flag in ("disable_gate", "disable_era", "disable_conditions"):
+        if getattr(args, flag):
+            cfg["ablation"][flag] = True
     device = pick_device(cfg["device"])
     sample_split(cfg, device, args.split)
 
