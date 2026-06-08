@@ -52,3 +52,25 @@ class Diffusion:
             noise = torch.randn_like(Y)
             return mean + torch.sqrt(beta) * noise
         return mean
+
+    def p_step_thresh(self, Y, eps_hat, t_scalar: int, clip: float = 8.0):
+        """Reverse step with x0 thresholding (numerically stable posterior).
+
+        Predicts the clean sample x0, clamps it to +/- clip standard deviations
+        (data lives well within this; runaway samples are caught), then uses the
+        exact DDPM posterior q(x_{t-1} | x_t, x0). This avoids the unstable
+        1/sqrt(1-abar) division near t=0 that lets a few samples diverge."""
+        ab = self.abar[t_scalar]
+        ab_prev = self.abar[t_scalar - 1] if t_scalar > 0 else torch.ones_like(ab)
+        a = self.alphas[t_scalar]
+        beta = self.betas[t_scalar]
+        x0 = (Y - torch.sqrt(1 - ab) * eps_hat) / torch.sqrt(ab)
+        if clip is not None:
+            x0 = torch.clamp(x0, -clip, clip)
+        coef_x0 = torch.sqrt(ab_prev) * beta / (1 - ab)
+        coef_xt = torch.sqrt(a) * (1 - ab_prev) / (1 - ab)
+        mean = coef_x0 * x0 + coef_xt * Y
+        if t_scalar > 0:
+            var = beta * (1 - ab_prev) / (1 - ab)
+            return mean + torch.sqrt(var) * torch.randn_like(Y)
+        return mean

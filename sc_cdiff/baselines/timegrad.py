@@ -30,6 +30,7 @@ class TimeGrad(nn.Module):
         self.diff = Diffusion(cfg["diffusion"]["n_steps"])
         self.pv_idx, self.pv_cap = cfg["pv_idx"], cfg["pv_cap"]
         self.C = cfg["n_channels"]
+        self.x0_clip = cfg["sample"].get("x0_clip", 8.0)
 
     def to(self, *a, **k):
         super().to(*a, **k)
@@ -79,14 +80,23 @@ class TimeGrad(nn.Module):
         for tau in range(24):
             h = self.gru(torch.cat([y_prev, cond[:, tau]], dim=-1), h)
             observed = M[:, 0, tau] > 0.5                    # same prefix mask all channels
-            # reverse diffusion for this hour
+            # reverse diffusion for this hour (with x0 thresholding for stability)
+            clip = self.x0_clip
             y = torch.randn(Bn, self.C, device=dev)
             for t in reversed(range(self.diff.N)):
                 tb = torch.full((Bn,), t, device=dev, dtype=torch.long)
                 eps_hat = self._eps(y, h, tb)
-                a = self.diff.alphas[t]; ab = self.diff.abar[t]; beta = self.diff.betas[t]
-                mean = (y - (1 - a) / torch.sqrt(1 - ab) * eps_hat) / torch.sqrt(a)
-                y = mean + (beta.sqrt() * torch.randn_like(y) if t > 0 else 0.0)
+                ab = self.diff.abar[t]
+                ab_prev = self.diff.abar[t - 1] if t > 0 else torch.ones_like(ab)
+                a = self.diff.alphas[t]; beta = self.diff.betas[t]
+                x0 = torch.clamp((y - torch.sqrt(1 - ab) * eps_hat) / torch.sqrt(ab), -clip, clip)
+                mean = (torch.sqrt(ab_prev) * beta / (1 - ab)) * x0 \
+                    + (torch.sqrt(a) * (1 - ab_prev) / (1 - ab)) * y
+                if t > 0:
+                    var = beta * (1 - ab_prev) / (1 - ab)
+                    y = mean + torch.sqrt(var) * torch.randn_like(y)
+                else:
+                    y = mean
             # teacher-force observed prefix with the standardized truth
             y = torch.where(observed.unsqueeze(-1), Yobs[:, :, tau], y)
             ys.append(y)

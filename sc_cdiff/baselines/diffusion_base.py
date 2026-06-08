@@ -24,6 +24,7 @@ class ConditionalDiffusionBaseline(nn.Module):
         self.pv_idx, self.c_idx, self.h_idx = cfg["pv_idx"], cfg["c_idx"], cfg["h_idx"]
         self.e_idx, self.hw_idx = cfg["e_idx"], cfg["hw_idx"]
         self.pv_cap = cfg["pv_cap"]
+        self.x0_clip = cfg["sample"].get("x0_clip", 8.0)
 
     def to(self, *a, **k):
         super().to(*a, **k)
@@ -53,11 +54,12 @@ class ConditionalDiffusionBaseline(nn.Module):
         Yrawr = rep(batch["Yraw"])
         B = batch["W"].shape[0]
         h_cond = self.enc(W, CAL, Yhat, era)
+        clip = getattr(self, "x0_clip", 8.0)
         Y = torch.randn(B * n, 5, 24, device=dev)
         for t in reversed(range(self.diff.N)):
             cv = M * Yobs + (1 - M) * Y
             tb = torch.full((B * n,), t, device=dev, dtype=torch.long)
-            Y = self.diff.p_step(Y, self.backbone(cv, tb, h_cond, era), t)
+            Y = self.diff.p_step_thresh(Y, self.backbone(cv, tb, h_cond, era), t, clip=clip)
             Y = M * Yobs + (1 - M) * Y
         Yr = self.norm.denormalize_torch(Y, era)
         out = F.relu(Yr)                                    # non-negativity only (no gate)

@@ -168,12 +168,13 @@ class SCCDiff(nn.Module):
             Bc = torch.bernoulli(pi[:, 0])
             Bh = torch.bernoulli(pi[:, 1])
 
+        clip = self.cfg["sample"].get("x0_clip", 8.0)
         Y = torch.randn(B * n, 5, 24, device=dev)
         for t in reversed(range(self.diff.N)):
             cond_val = Mr * Yobsr + (1 - Mr) * Y
             t_b = torch.full((B * n,), t, device=dev, dtype=torch.long)
             eps_hat = self.denoiser(cond_val, t_b, Mr, Yhatr, h_cond, erar, use_era=self.use_era)
-            Y = self.diff.p_step(Y, eps_hat, t)
+            Y = self.diff.p_step_thresh(Y, eps_hat, t, clip=clip)
             Y = Mr * Yobsr + (1 - Mr) * Y                # inpaint observed each step
 
         Yr = self.norm.denormalize_torch(Y, erar)        # raw scale

@@ -113,3 +113,4 @@ sample:
   ks: [0, 6, 12, 18]       # forecast horizons (observed-prefix length)
   n_scenarios: 100         # M scenarios per test day per task
   batch_days: 32           # day-batch size during sampling
+  x0_clip: 8.0             # x0 thresholding bound (std units) for stable sampling
