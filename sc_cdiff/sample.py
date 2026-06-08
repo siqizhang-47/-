@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import time
 
 import numpy as np
 import torch
@@ -29,8 +30,10 @@ def sample_split(cfg, device, split="test", use_ema=True):
     bs = cfg["sample"]["batch_days"]
     for k in cfg["sample"]["ks"]:
         ds = AlignedDays(cfg, split, k=k)
+        nbatch = (len(ds) + bs - 1) // bs
+        t0 = time.time()
         scen_all, true_all, irr_all, start_all = [], [], [], []
-        for i in range(0, len(ds), bs):
+        for bi, i in enumerate(range(0, len(ds), bs)):
             sub = [ds[j] for j in range(i, min(i + bs, len(ds)))]
             batch = {kk: torch.stack([s[kk] for s in sub]).to(device) for kk in sub[0]}
             scen = model.sample(batch, n_scen).cpu().numpy()
@@ -38,6 +41,12 @@ def sample_split(cfg, device, split="test", use_ema=True):
             true_all.append(batch["Yraw"].cpu().numpy())
             irr_all.append(batch["irr"].cpu().numpy())
             start_all.append(batch["start"].cpu().numpy())
+            done = bi + 1
+            el = time.time() - t0
+            eta = el / done * (nbatch - done)
+            print(f"\r[sample] {split} k={k}: batch {done}/{nbatch} "
+                  f"({100*done/nbatch:.0f}%) elapsed={el:.0f}s eta={eta:.0f}s", end="", flush=True)
+        print()  # newline after the progress line
         scen = np.concatenate(scen_all, 0)
         out = scen_path(cfg, split, k)
         np.savez_compressed(out, scenarios=scen,

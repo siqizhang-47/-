@@ -11,6 +11,8 @@ for fairness, and writes the npz.
 """
 from __future__ import annotations
 
+import time
+
 import numpy as np
 import pandas as pd
 import torch
@@ -42,8 +44,10 @@ def run_and_save(cfg, gen_fn, split="test", device="cpu", desc="baseline"):
     bs = cfg["sample"]["batch_days"]
     for k in cfg["sample"]["ks"]:
         ds = AlignedDays(cfg, split, k=k)
+        nbatch = (len(ds) + bs - 1) // bs
+        t0 = time.time()
         scen_all, true_all, irr_all, start_all = [], [], [], []
-        for i in range(0, len(ds), bs):
+        for bi, i in enumerate(range(0, len(ds), bs)):
             sub = [ds[j] for j in range(i, min(i + bs, len(ds)))]
             batch = collate(sub)
             batch = {kk: (v.to(device) if torch.is_tensor(v) else v) for kk, v in batch.items()}
@@ -59,6 +63,12 @@ def run_and_save(cfg, gen_fn, split="test", device="cpu", desc="baseline"):
             true_all.append(batch["Yraw"].cpu().numpy())
             irr_all.append(batch["irr"].cpu().numpy())
             start_all.append(batch["start"].cpu().numpy())
+            done = bi + 1
+            el = time.time() - t0
+            print(f"\r[{desc}] {split} k={k}: batch {done}/{nbatch} "
+                  f"({100*done/nbatch:.0f}%) elapsed={el:.0f}s eta={el/done*(nbatch-done):.0f}s",
+                  end="", flush=True)
+        print()
         scen = np.concatenate(scen_all, 0)
         truth = np.concatenate(true_all, 0)
         irr = np.concatenate(irr_all, 0)
