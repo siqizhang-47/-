@@ -134,6 +134,19 @@ python -m sc_cdiff.eval.collect_results --split test --k 0
 # -> prints a sorted table and writes master_results_test_k0.csv
 ```
 
+### Plots / visualization
+
+```bash
+python -m sc_cdiff.eval.plots --split test --k 0 --tag sccdiff
+# -> writes PNGs under <artifacts>/plots/
+```
+
+Produces, for the chosen method/tag: per-season **fan charts** (truth vs
+scenario median + 10-90%/25-75% bands + sample trajectories, all 5 channels),
+a **rank histogram** (ensemble calibration; flat = well calibrated), **marginal**
+generated-vs-real histograms, and a **reliability** curve (nominal vs empirical
+coverage). Run with a different `--tag` to visualize any baseline.
+
 ## Notes / gotchas
 
 - **Sampling batch size and the CUDA MHA limit**: the fused MultiHeadAttention
