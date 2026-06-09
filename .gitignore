@@ -14,3 +14,7 @@ nsfc-temp.pdf
 
 # generated delivery archive
 sc_cdiff.tar.gz
+
+# CW-Gen IES task (delivered as tarball, not vendored into this repo)
+cwgen_work/
+cwgen_ies.tar.gz
