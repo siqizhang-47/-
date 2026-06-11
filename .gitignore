@@ -18,3 +18,7 @@ sc_cdiff.tar.gz
 # CW-Gen IES task (delivered as tarball, not vendored into this repo)
 cwgen_work/
 cwgen_ies.tar.gz
+
+# IES weather-informed reproduction (delivered as tarball)
+ies_repro/
+ies_repro.tar.gz
