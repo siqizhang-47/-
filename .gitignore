@@ -22,3 +22,8 @@ cwgen_ies.tar.gz
 # IES weather-informed reproduction (delivered as tarball)
 ies_repro/
 ies_repro.tar.gz
+
+# WCT-DistTFT task (delivered as tarball)
+wct_disttft/
+wct_work/
+wct_disttft.tar.gz
