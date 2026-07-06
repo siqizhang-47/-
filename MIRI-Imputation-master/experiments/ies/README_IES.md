@@ -69,11 +69,38 @@ MIRI 本质是 transductive 填补，因此采用拼接协议保证各方法公�
 
 ## 环境安装
 
+### 方式 A：Conda（推荐）
+
 ```bash
 cd MIRI-Imputation-master
 conda env create -f envs/miri_ies.yml
 conda activate miri-ies
 export CUDA_VISIBLE_DEVICES=0        # 固定使用物理 GPU 0
+
+# 可选：missforest / gain / hyperimpute 三个 baseline 需要 hyperimpute。
+# 它依赖较重，故未写进 env（避免拖垮 conda env create）；单独安装即可。
+# 装不上不影响主实验：这三个方法会记为 status="failed" 并跳过。
+pip install hyperimpute==0.1.1
+```
+
+> 说明：原始方案里把 `numpy=1.21.6` 与 `scikit-learn=1.3.2` 同时钉死会导致
+> conda 无法求解（sklearn 1.3.2 需要 numpy>=1.23.5）。已将 numpy 调整为
+> 1.23.5，并移除 `defaults` 频道（其 numpy-base 拆包会破坏求解）。
+
+### 方式 B：pip / venv（不依赖 conda，最省事）
+
+IES 实验代码本身兼容现代版本栈，若不需要严格复现 MIRI 原始版本，直接 pip 即可：
+
+```bash
+cd MIRI-Imputation-master
+python3 -m venv .venv && source .venv/bin/activate
+pip install --upgrade pip
+# GPU 版 torch：按你的 CUDA 改 index-url（CPU 就删掉 --index-url 那一行）
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+pip install numpy pandas scikit-learn scipy openpyxl pyyaml tqdm ipython \
+            matplotlib seaborn joblib
+pip install hyperimpute==0.1.1     # 可选，同上
+export CUDA_VISIBLE_DEVICES=0
 ```
 
 数据文件已放在 `data/processed_data.xlsx`（配置默认路径）。如需自定义可用

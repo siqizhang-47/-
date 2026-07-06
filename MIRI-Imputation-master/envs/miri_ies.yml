@@ -1,9 +1,11 @@
 name: miri-ies
+
+# Channel priority: conda-forge first. The `defaults` channel is intentionally
+# omitted because its numpy-base split packages break the solve on some setups.
 channels:
   - pytorch
   - nvidia
   - conda-forge
-  - defaults
 
 dependencies:
   - python=3.10
@@ -14,14 +16,18 @@ dependencies:
   - torchvision=0.12.0
   - cudatoolkit=11.3
 
-  # Core scientific stack
-  - numpy=1.21.6
+  # Core scientific stack.
+  # numpy is bumped to 1.23.5 (from the original 1.21.6): scikit-learn 1.3.2
+  # requires numpy>=1.23.5, so pinning 1.21.6 makes the environment unsolvable.
+  # 1.23.5 is compatible with both PyTorch 1.11 and scikit-learn 1.3.2.
+  - numpy=1.23.5
   - pandas=2.0.3
   - scikit-learn=1.3.2
   - scipy
   - openpyxl
   - tqdm
-  - matplotlib=3.7.0
+  - ipython          # required: src/imputer.py imports IPython.display
+  - matplotlib
   - seaborn
   - pyyaml
   - joblib
@@ -31,6 +37,12 @@ dependencies:
   - xgboost
 
   - pip:
-      - hyperimpute==0.1.1
       - ml_collections==0.1.1
       - ninja==1.11.1
+      # NOTE: hyperimpute (for the missforest / gain / hyperimpute baselines) is
+      # NOT installed here on purpose -- its heavy, tightly-pinned dependency set
+      # can abort the whole `conda env create`. Install it separately after the
+      # env is created (see README_IES.md):
+      #     pip install hyperimpute==0.1.1
+      # These three baselines are optional; if hyperimpute is missing they are
+      # recorded as status="failed" at runtime and the sweep continues.
