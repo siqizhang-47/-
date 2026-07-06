@@ -1,0 +1,65 @@
+data:
+  excel_path: "data/processed_data.xlsx"
+  sheet_name: "Merged"
+  date_col: "Date"
+  drop_start: "2011-03-01 00:00:00"
+  drop_end: "2011-03-31 23:00:00"
+
+  feature_cols:
+    - "[Electricity] Electricity load (kW)"
+    - "[Electricity] Cooling load (kW)"
+    - "[Electricity] Heating load (kW)"
+    - "[Power] Solar energy generation (kW)"
+    - "[Weather] Horizontal solar irradition (W)"
+    - "[Weather] Outdoor air temperature (℃)"
+    - "[Weather] Outdoor air humidity (%)"
+    - "[Weather] Wind speed (m/s)"
+
+split:
+  train_ratio: 0.70
+  val_ratio: 0.10
+  test_ratio: 0.20
+  stratify_by_month_hour: true
+
+missing:
+  mechanisms: ["mcar", "mar", "mnar"]
+  mcar_rates: [0.2, 0.4, 0.6]
+  mar_rates: [0.4, 0.8]
+  mnar_rates: [0.2, 0.4, 0.6]
+
+  # MAR: weather variables are observed conditioning variables;
+  # energy variables are target variables to be masked.
+  mar_condition_cols:
+    - "[Weather] Horizontal solar irradition (W)"
+    - "[Weather] Outdoor air temperature (℃)"
+    - "[Weather] Outdoor air humidity (%)"
+    - "[Weather] Wind speed (m/s)"
+  mar_target_cols:
+    - "[Electricity] Electricity load (kW)"
+    - "[Electricity] Cooling load (kW)"
+    - "[Electricity] Heating load (kW)"
+    - "[Power] Solar energy generation (kW)"
+
+experiment:
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  methods: ["mean", "knn", "mice", "missforest", "gain", "hyperimpute", "miri"]
+
+miri:
+  max_rounds: 5
+  batch_size: 512
+  max_epochs: 100
+  ode_steps: 50
+  lr: 0.001
+  hidden_dims: [256, 256, 256]
+  estimate_mi: false
+  init_strategy: "train_mean_noise"
+  init_noise_std: 0.01
+
+metrics:
+  mmd_max_samples: 5000
+  rbf_sigma: null
+
+output:
+  root: "results/ies"
+  save_imputations: true
+  save_checkpoints: false
