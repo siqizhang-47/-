@@ -11,3 +11,11 @@ nsfc-temp.xdv
 nsfc-temp.synctex(busy)
 nsfc-temp.pdf
 nsfc-temp.pdf
+
+# NsDiff-IES runtime/data artifacts
+NsDiff-IES/results/
+NsDiff-IES/data/IES/Total_energy.csv
+NsDiff-IES/data/IES/Total_weather.csv
+NsDiff-IES/data/IES/IES.csv
+NsDiff-IES/data/IES/IES_base.csv
+**/__pycache__/
