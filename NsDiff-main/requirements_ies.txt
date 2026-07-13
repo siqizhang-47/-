@@ -1,0 +1,11 @@
+# 本方案(ies/)在原 NsDiff-main 依赖之上额外需要的包。
+# 原仓库依赖见 requirements.txt(torch_timeseries==0.1.10 提供 NS-Transformer 骨干)。
+torch
+torchvision            # torch_timeseries 间接依赖
+torch_timeseries==0.1.10
+pandas
+openpyxl               # 读取 .xlsx
+scikit-learn           # StandardScaler
+numpy
+matplotlib
+pyyaml

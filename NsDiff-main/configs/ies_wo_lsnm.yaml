@@ -1,0 +1,46 @@
+seed: 2026
+output_dir: outputs_ies_wo_lsnm
+data:
+  path: data/processed_data.xlsx
+  input_len: 168
+  pred_len: 48
+  rolling_length: 96
+  train_ratio: 0.7
+  val_ratio: 0.1
+  stride: 1
+  test_stride: 1          # 主评测;鲁棒性佐证时另跑 24
+  num_workers: 4
+model:
+  d_model: 512
+  n_heads: 8
+  e_layers: 2
+  d_layers: 1
+  d_ff: 1024
+  dropout: 0.05
+  diffusion_steps: 20     # 论文默认;算力足可 50
+  beta_start: 1.0e-4
+  beta_end: 0.02
+  beta_schedule: linear
+  weather_mlp: true       # 天气用 2 层 MLP 注入(耦合更强)
+  g_hidden: 512
+  CART_input_x_embed_dim: 32
+train:
+  epochs: 50
+  patience: 8
+  batch_size: 64
+  lr: 5.0e-4
+  weight_decay: 1.0e-6
+  grad_clip: 1.0
+infer:
+  num_samples: 100
+  val_samples: 50
+  qice_bins: 10
+  val_max_batches: 40     # 验证只跑前若干 batch 提速(设 null 用全量验证集)
+hurdle:
+  enable: true            # 消融时置 false
+  thresh: 0.5
+  nonneg: true
+  night: [6, 19]          # 夜间 PV=0 的小时区间外置零
+
+ablation:
+  no_lsnm: true
