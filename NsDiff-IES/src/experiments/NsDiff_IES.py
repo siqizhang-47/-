@@ -22,6 +22,8 @@ CUDA_DEVICE_ORDER=PCI_BUS_ID python3 ./src/experiments/NsDiff_IES.py \
     --windows=168 --horizon=1 --pred_len=24 \
     generate --seed=1
 """
+import src.np_compat  # noqa: F401  (restore np.Inf etc. for NumPy>=2.0, must be first)
+
 import os
 from dataclasses import dataclass
 
