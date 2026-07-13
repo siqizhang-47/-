@@ -13,6 +13,12 @@ from ies import plots as P
 from src.layer.nsdiff_utils import (q_sample, p_sample_loop, p_sample_loop_pe,
                                      cal_forward_noise, cal_sigma_tilde)
 
+try:
+    from tqdm import tqdm
+except ImportError:                          # tqdm 缺失时退化为普通可迭代对象
+    def tqdm(it=None, *a, **k):
+        return it if it is not None else None
+
 EPS = 1e-8
 N_WEATHER = 4          # 与 ies.data.WEATHER 一致
 
@@ -103,10 +109,12 @@ def crps_avg(y, s):  # 标准化后跨变量平均;kW 下按需分变量看
 
 @torch.no_grad()
 def evaluate(model, f, g, zero, loader, sy, num_samples, dev, hurdle_cfg, abl,
-             want_arrays=False, max_batches=None):
+             want_arrays=False, max_batches=None, desc='eval'):
     model.eval(); f.eval(); g.eval()
     Y, S = [], []
-    for bi, b in enumerate(loader):
+    n_total = max_batches if max_batches is not None else len(loader)
+    pbar = tqdm(loader, total=n_total, desc=f'{desc} (sampling x{num_samples})', ncols=100, leave=False)
+    for bi, b in enumerate(pbar):
         if max_batches is not None and bi >= max_batches:
             break
         b = apply_ablation_inputs(to(b, dev), abl)
@@ -162,18 +170,22 @@ def main():
     max_train_batches = cfg['train'].get('max_batches', None)
     val_max_batches = cfg['infer'].get('val_max_batches', None)
 
+    n_train = max_train_batches if max_train_batches is not None else len(dl['train'])
     for ep in range(1, cfg['train']['epochs'] + 1):
         model.train(); f.train(); g.train(); tl = []
         t0 = time.time()
-        for bi, b in enumerate(dl['train']):
+        pbar = tqdm(dl['train'], total=n_train, desc=f'epoch {ep}/{cfg["train"]["epochs"]} [train]', ncols=100)
+        for bi, b in enumerate(pbar):
             if max_train_batches is not None and bi >= max_train_batches:
                 break
             b = apply_ablation_inputs(to(b, dev), abl); opt.zero_grad()
             loss = train_loss(model, f, g, zero, b, rolling, abl)
             loss.backward(); torch.nn.utils.clip_grad_norm_(params, cfg['train'].get('grad_clip', 1.0))
             opt.step(); tl.append(loss.item())
+            if hasattr(pbar, 'set_postfix'):
+                pbar.set_postfix(loss=f'{loss.item():.4f}', avg=f'{np.mean(tl):.4f}')
         val = evaluate(model, f, g, zero, dl['val'], sy, cfg['infer'].get('val_samples', 50), dev,
-                       cfg['hurdle'], abl, max_batches=val_max_batches)
+                       cfg['hurdle'], abl, max_batches=val_max_batches, desc=f'epoch {ep} [val]')
         sch.step(val['CRPS_std'])
         print(f"epoch {ep}  train {np.mean(tl):.4f}  val CRPS(std) {val['CRPS_std']:.4f}  "
               f"QICE {val['QICE']:.3f}  ({time.time() - t0:.1f}s)")
@@ -191,9 +203,11 @@ def main():
     if zero is not None:
         zero.load_state_dict(ck['zero'])
 
+    print('running final test evaluation ...')
     res, (y, s, r_real, r_gen) = evaluate(model, f, g, zero, dl['test'], sy,
                                           cfg['infer']['num_samples'], dev, cfg['hurdle'], abl,
-                                          want_arrays=True, max_batches=cfg['infer'].get('test_max_batches', None))
+                                          want_arrays=True, max_batches=cfg['infer'].get('test_max_batches', None),
+                                          desc='test')
     json.dump(res, open(out / 'tables' / 'metrics.json', 'w'), indent=2, ensure_ascii=False)
     print('\n==== TEST ===='); print(json.dumps(res, indent=2, ensure_ascii=False))
     P.fig1_real_vs_gen(y, s, str(out / 'figures' / 'fig1_real_vs_gen.png'))

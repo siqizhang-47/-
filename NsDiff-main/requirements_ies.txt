@@ -8,4 +8,5 @@ openpyxl               # 读取 .xlsx
 scikit-learn           # StandardScaler
 numpy
 matplotlib
+tqdm                   # 训练/采样进度条
 pyyaml
