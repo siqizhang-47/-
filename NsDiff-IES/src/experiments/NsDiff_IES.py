@@ -63,8 +63,16 @@ class NsDiffIES(NsDiffForecast):
             return None
 
     @torch.no_grad()
-    def generate(self, seed=1, out_dir=None, max_batches=None):
+    def generate(self, seed=1, out_dir=None, max_batches=None, run_dir=None):
         self._setup_run(seed)
+        # Optionally point the checkpoint paths at an explicit run directory
+        # (robust to hyper-parameter hash mismatches between train & plot).
+        if run_dir is not None:
+            self.run_save_dir = run_dir
+            self.best_checkpoint_filepath = os.path.join(run_dir, "model.pth")
+            self.best_cond_checkpoint_filepath = os.path.join(run_dir, "cond_pred_model.pth")
+            self.best_cond_g_checkpoint_filepath = os.path.join(run_dir, "cond_pred_model_g.pth")
+        print(f"[generate] loading checkpoint from: {self.run_save_dir}")
         self._load_best_model()
         self.model.eval()
         self.cond_pred_model.eval()
