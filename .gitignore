@@ -19,3 +19,8 @@ NsDiff-IES/data/IES/Total_weather.csv
 NsDiff-IES/data/IES/IES.csv
 NsDiff-IES/data/IES/IES_base.csv
 **/__pycache__/
+
+# TimeXer-NsDiff
+TimeXer-NsDiff/results/
+TimeXer-NsDiff/data/IES/Total_energy.csv
+TimeXer-NsDiff/data/IES/Total_weather.csv

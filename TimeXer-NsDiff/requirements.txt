@@ -1,0 +1,8 @@
+# TimeXer-NsDiff needs only these (no torch_timeseries required):
+torch>=2.0
+numpy
+pandas
+matplotlib
+scipy
+tqdm
+fire
