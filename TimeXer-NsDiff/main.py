@@ -23,8 +23,8 @@ from tqdm import tqdm
 from data_ies import build_dataloaders
 from model import TimeXerNsDiff
 from metrics import RunningMetrics, energy_score, variogram_score, COVERAGE_LEVELS
-from figures import fig_forecast, fig_attention
-from timexer_nsdiff_adapter import EXO_TOKENS, TARGET_NAMES
+from figures import fig_pdf_kde, fig_timeseries, fig_correlation
+from timexer_nsdiff_adapter import TARGET_NAMES
 
 
 def _default_cfg(device):
@@ -93,22 +93,28 @@ def train(device="cuda:4", data_root="./data/IES", out_dir="./results",
 @torch.no_grad()
 def evaluate(device="cuda:4", data_root="./data/IES", out_dir="./results",
              ckpt="./results/best.pt", n_samples=100, batch_size=64, num_workers=4,
-             es_vs_windows=512, fig_windows=6, max_test_batches=None):
+             es_vs_windows=512, ts_days=7, kde_per_batch=1500, max_test_batches=None):
     os.makedirs(out_dir, exist_ok=True)
     ck = torch.load(ckpt, map_location=device, weights_only=False)
     cfg = ck["cfg"]; cfg["device"] = device
     model = _build_model(cfg).to(device); model.load_state_dict(ck["state_dict"]); model.eval()
     tmean = np.asarray(ck["target_scaler"]["mean"]); tstd = np.asarray(ck["target_scaler"]["std"])
     tnames = ck.get("target_names", TARGET_NAMES)
+    K = len(tnames)
+    H = cfg["horizon"]
+    rng = np.random.default_rng(0)
 
     loaders, _ = build_dataloaders(data_root, batch_size=batch_size, num_workers=num_workers)
-    rm = RunningMetrics(n_targets=len(tnames))
+    rm = RunningMetrics(n_targets=K)
 
-    es_std, es_truth_std = [], []            # standardised samples for ES/VS
-    fig_s, fig_t = [], []                    # raw samples/truth for the fan chart
-    attn_sum, attn_cnt = None, 0
+    es_std, es_truth_std = [], []              # standardised samples for ES/VS
+    gmean_all, truth_all = [], []              # generated mean & truth (correlation)
+    pred_pool = {k: [] for k in range(K)}      # predicted sample values (KDE)
+    act_pool = {k: [] for k in range(K)}       # actual values (KDE)
+    ts_s, ts_t = [], []                        # consecutive-day samples/truth (time series)
+    g = 0                                      # global window counter
 
-    def inv(x):                              # standardised -> raw
+    def inv(x):
         return x * tstd + tmean
 
     loader = loaders["test"]
@@ -118,24 +124,32 @@ def evaluate(device="cuda:4", data_root="./data/IES", out_dir="./results",
                 break
             he = b["history_energy"].to(device)
             fc = b["future_calendar"].to(device); fw = b["future_weather"].to(device)
-            y0, mu, attn = model.sample(he, fc, fw, n_samples=n_samples, return_attention=True)
+            y0, mu = model.sample(he, fc, fw, n_samples=n_samples)
             s_std = y0.cpu().numpy()                                  # [b,S,H,K]
-            t_std = b["future_energy"].numpy()                       # [b,H,K]
+            t_std = b["future_energy"].numpy()
             s_raw = inv(s_std); t_raw = b["future_energy_raw"].numpy()
             rm.update(s_raw, t_raw)
 
-            a = attn.mean(1).cpu().numpy()                           # [b,4,16] mean over heads
-            attn_sum = a.sum(0) if attn_sum is None else attn_sum + a.sum(0)
-            attn_cnt += a.shape[0]
+            gmean_all.append(s_raw.mean(1).reshape(-1, K))            # [b*H,K]
+            truth_all.append(t_raw.reshape(-1, K))
+            for k in range(K):
+                pv = s_raw[:, :, :, k].reshape(-1)
+                av = t_raw[:, :, k].reshape(-1)
+                pred_pool[k].append(rng.choice(pv, size=min(kde_per_batch, pv.size), replace=False))
+                act_pool[k].append(rng.choice(av, size=min(kde_per_batch, av.size), replace=False))
 
             if len(es_std) * s_std.shape[0] < es_vs_windows:
                 es_std.append(s_std); es_truth_std.append(t_std)
-            if len(fig_s) * s_raw.shape[0] < fig_windows:
-                fig_s.append(s_raw); fig_t.append(t_raw)
+
+            # collect non-overlapping consecutive windows (stride H) for the timeline
+            bsz = s_raw.shape[0]
+            for j in range(bsz):
+                if (g + j) % H == 0 and len(ts_s) < ts_days:
+                    ts_s.append(s_raw[j]); ts_t.append(t_raw[j])
+            g += bsz
             bar.update(1)
 
     res = rm.finalize()
-
     es_std = np.concatenate(es_std, 0)[:es_vs_windows]
     es_truth_std = np.concatenate(es_truth_std, 0)[:es_vs_windows]
     res["ES"] = energy_score(es_std, es_truth_std)
@@ -143,10 +157,14 @@ def evaluate(device="cuda:4", data_root="./data/IES", out_dir="./results",
     res = {k: float(v) for k, v in res.items()}
 
     # figures
-    fs = np.concatenate(fig_s, 0); ft = np.concatenate(fig_t, 0)
-    fig_forecast(fs, ft, tnames, os.path.join(out_dir, "fig1_forecast.png"), window_index=0)
-    attn_mean = attn_sum / max(attn_cnt, 1)                          # [4,16]
-    fig_attention(attn_mean, EXO_TOKENS, tnames, os.path.join(out_dir, "fig2_attention.png"))
+    pred_pool = {k: np.concatenate(v) for k, v in pred_pool.items()}
+    act_pool = {k: np.concatenate(v) for k, v in act_pool.items()}
+    fig_pdf_kde(pred_pool, act_pool, tnames, os.path.join(out_dir, "fig1_pdf_kde.png"))
+    if len(ts_s) >= 1:
+        fig_timeseries(np.stack(ts_s), np.stack(ts_t), tnames,
+                       os.path.join(out_dir, "fig2_timeseries.png"))
+    gm = np.concatenate(gmean_all, 0); tr = np.concatenate(truth_all, 0)
+    fig_correlation(gm, tr, tnames, os.path.join(out_dir, "fig3_correlation.png"))
 
     # one-line metrics
     order = ["MAE", "RMSE", "sMAPE", "CRPS", "QICE",
@@ -168,7 +186,7 @@ def train_eval(device="cuda:4", **kw):
     ckpt = train(device=device, **train_kw)
     eval_kw = {k: v for k, v in kw.items() if k in
                {"data_root", "out_dir", "n_samples", "batch_size", "num_workers",
-                "es_vs_windows", "fig_windows", "max_test_batches"}}
+                "es_vs_windows", "ts_days", "kde_per_batch", "max_test_batches"}}
     return evaluate(device=device, ckpt=ckpt, **eval_kw)
 
 

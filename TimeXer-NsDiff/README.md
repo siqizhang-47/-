@@ -23,9 +23,13 @@ future weather [B,24,7] ─────────────┴─ 16 variate
 ## What it produces
 - **one line of metrics** (test = 2022): `MAE RMSE sMAPE CRPS QICE
   PICP50 PICP80 PICP90 PICP95 MIW90 ES VS`
-- **two figures**: `fig1_forecast.png` (probabilistic fan chart: median +
-  50%/90% bands vs actual for a sample test day) and `fig2_attention.png`
-  (target ← exogenous cross-attention heat-map, plan §23).
+- **three figures**:
+  - `fig1_pdf_kde.png` — predicted vs actual marginal distribution (histogram +
+    KDE) per target;
+  - `fig2_timeseries.png` — real vs generated time series (median + 90% band)
+    over consecutive test days, per target;
+  - `fig3_correlation.png` — Pearson correlation matrices among the four targets,
+    **generated vs real** (4×4 heat-maps).
 
 ## Install & run (GPU 4)
 ```bash
@@ -84,7 +88,7 @@ model.py                    TimeXerNsDiff (condition path + NsDiff diffusion)
 timexer_nsdiff_adapter.py   TimeXer condition encoder + f_phi/g_psi heads (§27)
 data_ies.py                 time-split dataset, separate scalers, cyclic calendar
 metrics.py                  streaming metrics + Energy/Variogram score
-figures.py                  fan chart + attention heat-map
+figures.py                  pdf+kde / time-series / correlation heat-maps
 reused/  timexer_* (TimeXer) , nsdiff_utils/denoise/nsdiff_core/sigma (NsDiff)
 data/IES/  Total_energy.csv, Total_weather.csv
 ```
