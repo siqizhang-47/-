@@ -1,2 +1,2 @@
-Place `Total_energy.csv` and `Total_weather.csv` here (they are shipped in the
-delivered zip). They are not tracked in git due to size.
+Place `aligned_energy_weather_summary.xlsx` here (shipped in the delivered zip;
+not tracked in git due to size). Sheet `Aligned_Data` is read directly.

@@ -41,13 +41,12 @@ def fig_pdf_kde(pred_pool, actual_pool, target_names, out_path, units=None):
         ax.hist(av, bins=bins, density=True, color="#e8837a", alpha=0.55, label="Actual Distribution")
         ax.plot(grid, _kde(pv, grid), color="#1f3fa0", lw=1.6, label="Predicted KDE")
         ax.plot(grid, _kde(av, grid), color="#c0271c", lw=1.6, label="Actual KDE")
-        xl = f"{target_names[k]}" + (f" ({units[k]})" if units else "")
-        ax.set_xlabel(f"Load  {xl}"); ax.set_ylabel("Density")
+        ax.set_xlabel(f"{target_names[k]}  (normalised [0,1])"); ax.set_ylabel("Density")
         ax.set_title(f"({chr(97+k)})  {target_names[k]}")
         ax.legend(fontsize=7)
     for k in range(K, len(axes)):
         axes[k].axis("off")
-    fig.suptitle("Predicted vs actual distribution (Oracle Weather)")
+    fig.suptitle("Predicted vs actual distribution — normalised [0,1] (Oracle Weather)")
     fig.tight_layout(); fig.savefig(out_path, dpi=200); plt.close(fig)
 
 
@@ -67,12 +66,12 @@ def fig_timeseries(ts_samples, ts_truth, target_names, out_path):
         ax.fill_between(x, lo[:, k], hi[:, k], color="#e8837a", alpha=0.35, label="90% interval")
         ax.plot(x, med[:, k], color="#b3271c", lw=1.0, label="Generated median")
         ax.plot(x, truth[:, k], color="#333333", lw=1.0, label="Actual")
-        ax.set_ylabel(target_names[k])
+        ax.set_ylabel(f"{target_names[k]} [0,1]")
         ax.set_title(f"({chr(97+k)})  {target_names[k]}", fontsize=9, loc="left")
         if k == 0:
             ax.legend(fontsize=7, ncol=3, loc="upper right")
     axes[-1].set_xlabel("Time (hours over consecutive test days)")
-    fig.suptitle("Real vs generated time series (Oracle Weather)")
+    fig.suptitle("Real vs generated time series — normalised [0,1] (Oracle Weather)")
     fig.tight_layout(); fig.savefig(out_path, dpi=200); plt.close(fig)
 
 

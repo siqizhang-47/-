@@ -22,5 +22,5 @@ NsDiff-IES/data/IES/IES_base.csv
 
 # TimeXer-NsDiff
 TimeXer-NsDiff/results/
-TimeXer-NsDiff/data/IES/Total_energy.csv
-TimeXer-NsDiff/data/IES/Total_weather.csv
+TimeXer-NsDiff/data/IES/aligned_energy_weather_summary.xlsx
+

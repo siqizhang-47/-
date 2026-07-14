@@ -24,9 +24,8 @@ from reused.timexer_embed import PositionalEmbedding
 # fixed exogenous token order (for the attention heat-map, §23)
 CALENDAR_TOKENS = ["YearTrend", "MonthSin", "MonthCos", "DaySin", "DayCos",
                    "HourSin", "HourCos", "WeekdaySin", "WeekdayCos"]          # 9
-# NB: the dataset ships `Precip` in place of `Clearsky GHI`; kept as the 7th weather token.
 WEATHER_TOKENS = ["Temperature", "DewPoint", "Humidity", "WindSpeed",
-                  "WindGust", "Pressure", "Precip"]                            # 7
+                  "WindGust", "Pressure", "ClearskyGHI"]                       # 7
 EXO_TOKENS = CALENDAR_TOKENS + WEATHER_TOKENS                                  # 16
 N_CAL, N_WEATHER, N_EXO = 9, 7, 16
 N_TARGETS = 4

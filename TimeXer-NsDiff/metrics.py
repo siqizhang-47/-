@@ -10,9 +10,10 @@ streaming fashion (RunningMetrics) so the full [M,S,H,4] sample tensor never has
 to be held in memory. Energy Score and Variogram Score are multivariate (over the
 4 targets) and computed on a capped subsample of windows.
 
-All metrics are reported in REAL (inverse-transformed, physical) units. Note that
-ES/VS on raw values are dominated by the largest-magnitude target (Electricity);
-switch to standardised inputs in main.evaluate if a scale-balanced score is wanted.
+All inputs are the NORMALISED [0,1] targets (min-max scaled), so every metric is
+reported in normalised units — comparable across the four targets. (sMAPE is
+noisy where a normalised target sits near 0, e.g. PV at night; read it together
+with MAE/RMSE.)
 """
 import numpy as np
 

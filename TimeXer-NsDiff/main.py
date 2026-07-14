@@ -38,7 +38,8 @@ def _build_model(cfg):
     return TimeXerNsDiff(**cfg)
 
 
-def train(device="cuda:4", data_root="./data/IES", out_dir="./results",
+def train(device="cuda:4", data_root="./data/IES/aligned_energy_weather_summary.xlsx",
+          out_dir="./results",
           batch_size=64, epochs=40, lr=1e-3, weight_decay=1e-4, patience=8,
           grad_clip=1.0, num_workers=4, max_train_batches=None, max_val_batches=None):
     os.makedirs(out_dir, exist_ok=True)
@@ -78,8 +79,8 @@ def train(device="cuda:4", data_root="./data/IES", out_dir="./results",
         if va < best_val - 1e-5:
             best_val, bad = va, 0
             torch.save({"state_dict": model.state_dict(), "cfg": cfg,
-                        "target_scaler": {"mean": meta["target_scaler"].mean,
-                                          "std": meta["target_scaler"].std},
+                        "target_scaler": {"min": meta["target_scaler"].min,
+                                          "range": meta["target_scaler"].range},
                         "target_names": meta["target_names"]},
                        os.path.join(out_dir, "best.pt"))
             print(f"  saved best (val={best_val:.4f})")
@@ -91,14 +92,14 @@ def train(device="cuda:4", data_root="./data/IES", out_dir="./results",
 
 
 @torch.no_grad()
-def evaluate(device="cuda:4", data_root="./data/IES", out_dir="./results",
-             ckpt="./results/best.pt", n_samples=100, batch_size=64, num_workers=4,
-             es_vs_windows=512, ts_days=7, kde_per_batch=1500, max_test_batches=None):
+def evaluate(device="cuda:4", data_root="./data/IES/aligned_energy_weather_summary.xlsx",
+             out_dir="./results", ckpt="./results/best.pt", n_samples=100, batch_size=64,
+             num_workers=4, es_vs_windows=512, ts_days=7, kde_per_batch=1500,
+             max_test_batches=None):
     os.makedirs(out_dir, exist_ok=True)
     ck = torch.load(ckpt, map_location=device, weights_only=False)
     cfg = ck["cfg"]; cfg["device"] = device
     model = _build_model(cfg).to(device); model.load_state_dict(ck["state_dict"]); model.eval()
-    tmean = np.asarray(ck["target_scaler"]["mean"]); tstd = np.asarray(ck["target_scaler"]["std"])
     tnames = ck.get("target_names", TARGET_NAMES)
     K = len(tnames)
     H = cfg["horizon"]
@@ -107,15 +108,13 @@ def evaluate(device="cuda:4", data_root="./data/IES", out_dir="./results",
     loaders, _ = build_dataloaders(data_root, batch_size=batch_size, num_workers=num_workers)
     rm = RunningMetrics(n_targets=K)
 
-    es_raw, es_truth_raw = [], []              # REAL-scale samples for ES/VS
+    # everything below is in the NORMALISED [0,1] space (targets are min-max scaled)
+    es_n, es_truth_n = [], []                  # normalised samples for ES/VS
     gmean_all, truth_all = [], []              # generated mean & truth (correlation)
     pred_pool = {k: [] for k in range(K)}      # predicted sample values (KDE)
     act_pool = {k: [] for k in range(K)}       # actual values (KDE)
     ts_s, ts_t = [], []                        # consecutive-day samples/truth (time series)
     g = 0                                      # global window counter
-
-    def inv(x):
-        return x * tstd + tmean
 
     loader = loaders["test"]
     with tqdm(total=max_test_batches or len(loader), desc="eval-sampling") as bar:
@@ -125,35 +124,33 @@ def evaluate(device="cuda:4", data_root="./data/IES", out_dir="./results",
             he = b["history_energy"].to(device)
             fc = b["future_calendar"].to(device); fw = b["future_weather"].to(device)
             y0, mu = model.sample(he, fc, fw, n_samples=n_samples)
-            s_std = y0.cpu().numpy()                                  # [b,S,H,K]
-            t_std = b["future_energy"].numpy()
-            s_raw = inv(s_std); t_raw = b["future_energy_raw"].numpy()
-            rm.update(s_raw, t_raw)
+            s_n = y0.cpu().numpy()                                    # [b,S,H,K] normalised
+            t_n = b["future_energy"].numpy()                         # [b,H,K]   normalised
+            rm.update(s_n, t_n)
 
-            gmean_all.append(s_raw.mean(1).reshape(-1, K))            # [b*H,K]
-            truth_all.append(t_raw.reshape(-1, K))
+            gmean_all.append(s_n.mean(1).reshape(-1, K))             # [b*H,K]
+            truth_all.append(t_n.reshape(-1, K))
             for k in range(K):
-                pv = s_raw[:, :, :, k].reshape(-1)
-                av = t_raw[:, :, k].reshape(-1)
+                pv = s_n[:, :, :, k].reshape(-1)
+                av = t_n[:, :, k].reshape(-1)
                 pred_pool[k].append(rng.choice(pv, size=min(kde_per_batch, pv.size), replace=False))
                 act_pool[k].append(rng.choice(av, size=min(kde_per_batch, av.size), replace=False))
 
-            if len(es_raw) * s_raw.shape[0] < es_vs_windows:
-                es_raw.append(s_raw); es_truth_raw.append(t_raw)
+            if len(es_n) * s_n.shape[0] < es_vs_windows:
+                es_n.append(s_n); es_truth_n.append(t_n)
 
-            # collect non-overlapping consecutive windows (stride H) for the timeline
-            bsz = s_raw.shape[0]
+            bsz = s_n.shape[0]
             for j in range(bsz):
                 if (g + j) % H == 0 and len(ts_s) < ts_days:
-                    ts_s.append(s_raw[j]); ts_t.append(t_raw[j])
+                    ts_s.append(s_n[j]); ts_t.append(t_n[j])
             g += bsz
             bar.update(1)
 
     res = rm.finalize()
-    es_raw = np.concatenate(es_raw, 0)[:es_vs_windows]
-    es_truth_raw = np.concatenate(es_truth_raw, 0)[:es_vs_windows]
-    res["ES"] = energy_score(es_raw, es_truth_raw)          # real units
-    res["VS"] = variogram_score(es_raw, es_truth_raw)       # real units
+    es_n = np.concatenate(es_n, 0)[:es_vs_windows]
+    es_truth_n = np.concatenate(es_truth_n, 0)[:es_vs_windows]
+    res["ES"] = energy_score(es_n, es_truth_n)              # normalised [0,1]
+    res["VS"] = variogram_score(es_n, es_truth_n)           # normalised [0,1]
     res = {k: float(v) for k, v in res.items()}
 
     # figures
@@ -170,9 +167,10 @@ def evaluate(device="cuda:4", data_root="./data/IES", out_dir="./results",
     order = ["MAE", "RMSE", "sMAPE", "CRPS", "QICE",
              "PICP50", "PICP80", "PICP90", "PICP95", "MIW90", "ES", "VS"]
     line = "  ".join(f"{k}={res[k]:.4f}" for k in order)
-    print("\n[Oracle Weather] " + line)
+    tag = "[Oracle Weather | normalised 0-1] "
+    print("\n" + tag + line)
     with open(os.path.join(out_dir, "metrics.txt"), "w") as f:
-        f.write("[Oracle Weather] " + line + "\n")
+        f.write(tag + line + "\n")
     with open(os.path.join(out_dir, "metrics.json"), "w") as f:
         json.dump(res, f, indent=2)
     print(f"figures + metrics saved under {out_dir}")

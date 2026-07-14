@@ -34,11 +34,12 @@ future weather [B,24,7] ─────────────┴─ 16 variate
 ## Install & run (GPU 4)
 ```bash
 cd TimeXer-NsDiff
-pip install -r requirements.txt      # torch, numpy, pandas, matplotlib, scipy, tqdm, fire
+pip install -r requirements.txt      # torch, numpy, pandas, matplotlib, scipy, tqdm, fire, openpyxl
 bash run.sh                          # trains on cuda:4, then evaluates
 ```
-Raw `Total_energy.csv` + `Total_weather.csv` are already under `data/IES/`;
-they are merged in-memory (no separate merge step).
+The dataset `data/IES/aligned_energy_weather_summary.xlsx` (sheet `Aligned_Data`,
+energy+weather already aligned, 78 888 hourly rows 2014-2022, no gaps) is read
+directly — no merge step.
 
 Manual equivalent:
 ```bash
@@ -58,7 +59,7 @@ Outputs land in `results/` (`best.pt`, `metrics.txt/.json`, the two PNGs).
 | targets | Electricity, PV, Cooling, Heat (jointly generated) |
 | exogenous | calendar→9 cyclic dims + 7 weather = 16 tokens |
 | split (by forecast year) | train 2014–2020 · val 2021 · **test 2022** |
-| standardisation | separate target / weather scalers, **fit on train only** |
+| normalisation | **min-max to [0,1]**, separate target / weather scalers, **fit on train only** |
 | d_model / heads / layers | 128 / 8 / 2 · patch 24 · diffusion steps 20 · S=100 |
 
 ## Important notes
@@ -66,9 +67,10 @@ Outputs land in `results/` (`best.pt`, `metrics.txt/.json`, the two PNGs).
   so results are an upper bound on what a real weather forecast would give. They
   are labelled `[Oracle Weather]` in `metrics.txt` and the figure title — do not
   report them as operational forecast performance (plan §3, §24.6).
-- **`Clearsky GHI` is not in the dataset.** The provided `Total_weather.csv` has
-  `Precip` instead, so the 7th weather token is `Precip` (kept 7 weather vars, so
-  M_exo = 16 as planned). Swap the column in `data_ies.WEATHER_COLS` if you add GHI.
+- **Normalised outputs.** Targets and weather are min-max scaled to **[0,1]**
+  (fit on train), so the model, the metric table and all three figures are in the
+  normalised [0,1] range. The 7 weather variables now include the real
+  `Clearsky GHI` (M_exo = 9 calendar + 7 weather = 16).
 - The denoiser conditions on μ and σ only (§20). To inject `cond_denoiser`
   directly into the denoiser (full §14), concatenate `cond["cond_denoiser"]`
   into `ConditionalGuidedModel` — the encoder already produces it.
