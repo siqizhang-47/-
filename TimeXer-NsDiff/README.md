@@ -78,8 +78,12 @@ Deterministic on the sample mean (raw scale): **MAE, RMSE, sMAPE**.
 Probabilistic: **CRPS** (sample-based), **QICE** (calibration, mean
 |1/bins − coverage|), **PICPq** (empirical coverage of the central q% interval,
 q∈{50,80,90,95}), **MIW90** (mean 90% interval width), **ES** (multivariate
-Energy Score over the 4 targets), **VS** (Variogram Score, order 0.5). ES/VS are
-computed on standardised targets over a capped window subsample (`--es_vs_windows`).
+Energy Score over the 4 targets), **VS** (Variogram Score, order 0.5).
+
+**All metrics and figures are in REAL (physical) units** — samples are
+inverse-transformed before any score or plot. ES/VS use a capped window subsample
+(`--es_vs_windows`); on real values they are dominated by the largest-magnitude
+target (Electricity), which is the trade-off for physical-unit interpretability.
 
 ## Files
 ```

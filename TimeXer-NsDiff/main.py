@@ -107,7 +107,7 @@ def evaluate(device="cuda:4", data_root="./data/IES", out_dir="./results",
     loaders, _ = build_dataloaders(data_root, batch_size=batch_size, num_workers=num_workers)
     rm = RunningMetrics(n_targets=K)
 
-    es_std, es_truth_std = [], []              # standardised samples for ES/VS
+    es_raw, es_truth_raw = [], []              # REAL-scale samples for ES/VS
     gmean_all, truth_all = [], []              # generated mean & truth (correlation)
     pred_pool = {k: [] for k in range(K)}      # predicted sample values (KDE)
     act_pool = {k: [] for k in range(K)}       # actual values (KDE)
@@ -138,8 +138,8 @@ def evaluate(device="cuda:4", data_root="./data/IES", out_dir="./results",
                 pred_pool[k].append(rng.choice(pv, size=min(kde_per_batch, pv.size), replace=False))
                 act_pool[k].append(rng.choice(av, size=min(kde_per_batch, av.size), replace=False))
 
-            if len(es_std) * s_std.shape[0] < es_vs_windows:
-                es_std.append(s_std); es_truth_std.append(t_std)
+            if len(es_raw) * s_raw.shape[0] < es_vs_windows:
+                es_raw.append(s_raw); es_truth_raw.append(t_raw)
 
             # collect non-overlapping consecutive windows (stride H) for the timeline
             bsz = s_raw.shape[0]
@@ -150,10 +150,10 @@ def evaluate(device="cuda:4", data_root="./data/IES", out_dir="./results",
             bar.update(1)
 
     res = rm.finalize()
-    es_std = np.concatenate(es_std, 0)[:es_vs_windows]
-    es_truth_std = np.concatenate(es_truth_std, 0)[:es_vs_windows]
-    res["ES"] = energy_score(es_std, es_truth_std)
-    res["VS"] = variogram_score(es_std, es_truth_std)
+    es_raw = np.concatenate(es_raw, 0)[:es_vs_windows]
+    es_truth_raw = np.concatenate(es_truth_raw, 0)[:es_vs_windows]
+    res["ES"] = energy_score(es_raw, es_truth_raw)          # real units
+    res["VS"] = variogram_score(es_raw, es_truth_raw)       # real units
     res = {k: float(v) for k, v in res.items()}
 
     # figures

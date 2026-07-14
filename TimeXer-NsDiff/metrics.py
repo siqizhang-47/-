@@ -8,7 +8,11 @@ mean interval width @90 (MIW), Energy Score, Variogram Score.
 CRPS / QICE / coverage / width / MAE / RMSE / sMAPE are accumulated in a
 streaming fashion (RunningMetrics) so the full [M,S,H,4] sample tensor never has
 to be held in memory. Energy Score and Variogram Score are multivariate (over the
-4 targets) and computed on a capped subsample of windows in standardised space.
+4 targets) and computed on a capped subsample of windows.
+
+All metrics are reported in REAL (inverse-transformed, physical) units. Note that
+ES/VS on raw values are dominated by the largest-magnitude target (Electricity);
+switch to standardised inputs in main.evaluate if a scale-balanced score is wanted.
 """
 import numpy as np
 
