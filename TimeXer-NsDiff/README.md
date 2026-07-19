@@ -62,6 +62,24 @@ Outputs land in `results/` (`best.pt`, `metrics.txt/.json`, the two PNGs).
 | normalisation | **min-max to [0,1]**, separate target / weather scalers, **fit on train only** |
 | d_model / heads / layers | 128 / 8 / 2 · patch 24 · diffusion steps 20 · S=100 |
 
+## Conditional-mean design (why v1 underperformed vanilla NsDiff)
+
+In the first version the mean μ was a flat MLP from a global vector and **ignored
+the per-hour condition** — so strongly-periodic loads (Heat, Electricity)
+collapsed toward a constant mean. On this data the trivial *same-hour-yesterday*
+baseline reaches overall MAE ≈ **0.027** (normalised), yet that v1 model scored
+MAE ≈ **0.046** — i.e. **worse than a naive baseline**, which is exactly why it
+felt worse than NsDiff (whose Transformer captures the daily cycle implicitly).
+
+The mean/scale heads are now **temporally-aware and history-anchored**:
+`μ = anchor + GRU-residual`, where `anchor = history[:, -24:]` (same hour
+yesterday) and the GRU runs over the **per-hour** `cond_denoiser` (TimeXer exo +
+horizon embedding). So μ starts from the ~0.027 baseline and the network only has
+to learn the residual, while TimeXer's exogenous conditioning still sharpens the
+weather-driven target (PV). Ablate with `--use_anchor=False`.
+
+> The architecture changed, so **retrain** — an old `best.pt` will not load.
+
 ## Important notes
 - **Oracle Weather.** Evaluation uses the *true* future weather as the condition,
   so results are an upper bound on what a real weather forecast would give. They

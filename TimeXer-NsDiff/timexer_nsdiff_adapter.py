@@ -177,23 +177,34 @@ class HistoryEncoder(nn.Module):
 
 
 class ConditionedLocationScaleHeads(nn.Module):
-    """f_phi (mean) and g_psi (scale) on [H_X ; cond_global] (§12-13)."""
-    def __init__(self, d_x, cond_dim, horizon=24, n_targets=N_TARGETS, hidden=256, eps=1e-4):
+    """f_phi (mean) and g_psi (scale), temporally-aware and history-anchored.
+
+    For each future hour h the head sees the PER-HOUR condition
+    (cond_denoiser_h, [B,H,4d]), the same-hour-yesterday anchor (history[:, -H:])
+    and a global history summary H_X, runs a GRU over the horizon, and predicts a
+    RESIDUAL over the anchor:  mu = anchor + delta.  Anchoring on the seasonal-
+    naive baseline is what lets strongly-periodic loads (Heat / Electricity) be
+    tracked instead of collapsing to a flat mean (§12-13, improved).
+    """
+    def __init__(self, d_x, cond_dim, horizon=24, n_targets=N_TARGETS, hidden=256,
+                 eps=1e-4, use_anchor=True):
         super().__init__()
         self.horizon, self.n_targets, self.eps = horizon, n_targets, eps
-        in_dim = d_x + cond_dim
-        def mlp():
-            return nn.Sequential(nn.Linear(in_dim, hidden), nn.GELU(),
-                                 nn.Linear(hidden, hidden), nn.GELU(),
-                                 nn.Linear(hidden, horizon * n_targets))
-        self.mean_head = mlp()
-        self.scale_head = mlp()
+        self.use_anchor = use_anchor
+        in_dim = cond_dim + n_targets + d_x            # cond_denoiser_h + anchor_h + H_X
+        self.gru = nn.GRU(in_dim, hidden, batch_first=True)
+        self.mean_out = nn.Linear(hidden, n_targets)
+        self.scale_out = nn.Linear(hidden, n_targets)
 
-    def forward(self, history_feature, cond_global):
-        h = torch.cat([history_feature, cond_global], dim=-1)
-        B = h.shape[0]
-        mu = self.mean_head(h).view(B, self.horizon, self.n_targets)
-        sigma = F.softplus(self.scale_head(h)).view(B, self.horizon, self.n_targets) + self.eps
+    def forward(self, cond_denoiser, anchor, history_feature):
+        # cond_denoiser [B,H,4d] ; anchor [B,H,4] ; history_feature [B,d_x]
+        B, H, _ = cond_denoiser.shape
+        hxb = history_feature[:, None, :].expand(B, H, history_feature.shape[-1])
+        x = torch.cat([cond_denoiser, anchor, hxb], dim=-1)
+        z, _ = self.gru(x)
+        delta = self.mean_out(z)
+        mu = anchor + delta if self.use_anchor else delta
+        sigma = F.softplus(self.scale_out(z)) + self.eps
         return mu, sigma
 
 

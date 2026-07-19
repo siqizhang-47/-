@@ -23,7 +23,7 @@ EPS = 1e-8
 class TimeXerNsDiff(nn.Module):
     def __init__(self, horizon=24, seq_len=168, d_model=128, patch_len=24,
                  n_heads=8, e_layers=2, d_ff=512, dropout=0.1,
-                 d_x=128, diffusion_steps=20, rolling_length=96,
+                 d_x=128, diffusion_steps=20, rolling_length=96, use_anchor=True,
                  beta_schedule="linear", beta_start=1e-4, beta_end=1e-2, device="cpu"):
         super().__init__()
         self.horizon, self.rolling_length, self.device = horizon, rolling_length, device
@@ -31,8 +31,9 @@ class TimeXerNsDiff(nn.Module):
             horizon=horizon, d_model=d_model, patch_len=patch_len,
             n_heads=n_heads, e_layers=e_layers, d_ff=d_ff, dropout=dropout)
         self.history_encoder = HistoryEncoder(n_vars=N_TARGETS, hidden=d_x, dropout=dropout)
-        cond_dim = d_model * N_TARGETS
-        self.heads = ConditionedLocationScaleHeads(d_x=d_x, cond_dim=cond_dim, horizon=horizon)
+        cond_dim = d_model * N_TARGETS               # per-hour cond_denoiser width
+        self.heads = ConditionedLocationScaleHeads(d_x=d_x, cond_dim=cond_dim,
+                                                   horizon=horizon, use_anchor=use_anchor)
         self.diffusion = NsDiffCore(diffusion_steps, N_TARGETS, device,
                                     beta_schedule, beta_start, beta_end)
         self.num_timesteps = diffusion_steps
@@ -41,7 +42,8 @@ class TimeXerNsDiff(nn.Module):
     def _condition(self, history_energy, future_calendar, future_weather):
         cond = self.condition_encoder(history_energy, future_calendar, future_weather)
         hx = self.history_encoder(history_energy)
-        mu, sigma = self.heads(hx, cond["cond_global"])
+        anchor = history_energy[:, -self.horizon:, :]          # same-hour-yesterday baseline
+        mu, sigma = self.heads(cond["cond_denoiser"], anchor, hx)
         return mu, sigma, cond
 
     # ---- training loss (verbatim NsDiff objective) -------------------------

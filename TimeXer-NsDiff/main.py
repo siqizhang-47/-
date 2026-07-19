@@ -27,11 +27,11 @@ from figures import fig_pdf_kde, fig_timeseries, fig_correlation
 from timexer_nsdiff_adapter import TARGET_NAMES
 
 
-def _default_cfg(device):
+def _default_cfg(device, use_anchor=True):
     return dict(horizon=24, seq_len=168, d_model=128, patch_len=24, n_heads=8,
                 e_layers=2, d_ff=512, dropout=0.1, d_x=128, diffusion_steps=20,
-                rolling_length=96, beta_schedule="linear", beta_start=1e-4,
-                beta_end=1e-2, device=device)
+                rolling_length=96, use_anchor=use_anchor, beta_schedule="linear",
+                beta_start=1e-4, beta_end=1e-2, device=device)
 
 
 def _build_model(cfg):
@@ -41,10 +41,11 @@ def _build_model(cfg):
 def train(device="cuda:4", data_root="./data/IES/aligned_energy_weather_summary.xlsx",
           out_dir="./results",
           batch_size=64, epochs=40, lr=1e-3, weight_decay=1e-4, patience=8,
-          grad_clip=1.0, num_workers=4, max_train_batches=None, max_val_batches=None):
+          grad_clip=1.0, num_workers=4, use_anchor=True,
+          max_train_batches=None, max_val_batches=None):
     os.makedirs(out_dir, exist_ok=True)
     loaders, meta = build_dataloaders(data_root, batch_size=batch_size, num_workers=num_workers)
-    cfg = _default_cfg(device)
+    cfg = _default_cfg(device, use_anchor=use_anchor)
     model = _build_model(cfg).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -180,7 +181,8 @@ def evaluate(device="cuda:4", data_root="./data/IES/aligned_energy_weather_summa
 def train_eval(device="cuda:4", **kw):
     train_kw = {k: v for k, v in kw.items() if k in
                 {"data_root", "out_dir", "batch_size", "epochs", "lr", "weight_decay",
-                 "patience", "grad_clip", "num_workers", "max_train_batches", "max_val_batches"}}
+                 "patience", "grad_clip", "num_workers", "use_anchor",
+                 "max_train_batches", "max_val_batches"}}
     ckpt = train(device=device, **train_kw)
     eval_kw = {k: v for k, v in kw.items() if k in
                {"data_root", "out_dir", "n_samples", "batch_size", "num_workers",
