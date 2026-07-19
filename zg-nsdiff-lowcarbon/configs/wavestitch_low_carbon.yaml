@@ -1,0 +1,24 @@
+# WaveStitch baseline adapter (conditional sequence completion), oracle future weather
+inherit: low_carbon_common.yaml
+model_name: wavestitch
+
+model:
+  condition_dim: 11
+  hidden_dim: 128
+  n_blocks: 6
+
+diffusion:
+  steps: 50
+  beta_start: 0.0001
+  beta_end: 0.05
+
+training:
+  optimizer: Adam
+  learning_rate: 0.0001
+  batch_size: 32
+  gradient_clip_norm: 1.0
+  num_workers: 4
+  epochs: 40
+
+sampling:
+  chunk_size: 20

@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+artifacts/
+results/
+figures/
+data/*.xlsx
+wandb/
+.pytest_cache/

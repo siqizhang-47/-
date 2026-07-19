@@ -1,0 +1,36 @@
+# D3U baseline adapter (deterministic + residual diffusion), oracle future weather
+inherit: low_carbon_common.yaml
+model_name: d3u
+
+model:
+  d_model: 512
+  n_heads: 8
+  e_layers: 2
+  d_layers: 1
+  d_ff: 1024
+  factor: 3
+  dropout: 0.05
+  activation: gelu
+  condition_dim: 11
+  enc_in: 4
+  p_hidden_dims: [64, 64]
+  p_hidden_layers: 2
+  denoise_hidden_dim: 128
+
+diffusion:
+  steps: 50
+  beta_start: 0.0001
+  beta_end: 0.05
+  rolling_length: 24
+
+training:
+  optimizer: Adam
+  learning_rate: 0.0001
+  batch_size: 32
+  gradient_clip_norm: 1.0
+  num_workers: 4
+  det_epochs: 20
+  diffusion_epochs: 30
+
+sampling:
+  chunk_size: 20

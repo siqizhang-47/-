@@ -1,0 +1,53 @@
+# Common low-carbon community experiment config (spec 21.1)
+data:
+  input_xlsx: data/processed_data.xlsx
+  sheet_name: Merged
+  artifacts_dir: artifacts/data/low_carbon
+
+  target_columns:
+    - "[Electricity] Electricity load (kW)"
+    - "[Electricity] Cooling load (kW)"
+    - "[Electricity] Heating load (kW)"
+    - "[Power] Solar energy generation (kW)"
+
+  weather_columns:
+    - "[Weather] Horizontal solar irradition (W)"
+    - "[Weather] Outdoor air temperature (℃)"
+    - "[Weather] Outdoor air humidity (%)"
+    - "[Weather] Wind speed (m/s)"
+
+  context_length: 168
+  prediction_length: 24
+  label_length: 84
+  horizon: 1
+
+  train_ratio: 0.70
+  val_ratio: 0.10
+  test_ratio: 0.20
+
+  future_weather_mode: oracle_observed
+  drop_window_with_any_missing: true
+
+transform:
+  electricity: standard
+  cooling: positive_log1p
+  heating: positive_log1p
+  pv: positive_log1p
+  positive_scale: train_positive_median
+
+  zero_thresholds:
+    cooling: 0.0
+    heating: 0.0
+    pv: 0.0
+
+evaluation:
+  validation_num_samples: 100
+  test_num_samples: 1000
+  prediction_interval: [0.025, 0.975]
+  seeds: [1, 2, 3]
+  shard_windows: 256
+  # optional runtime cap for per-epoch validation sampling; null = full val set
+  val_max_batches: null
+
+# GPU index used when CUDA_VISIBLE_DEVICES is not set (scripts export 6)
+gpu: 6
