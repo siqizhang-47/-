@@ -86,7 +86,10 @@ def main():
     parts += ["## 11. 效率", ""]
     if os.path.exists(args.efficiency):
         eff = pd.read_csv(args.efficiency)
-        parts += [eff.to_markdown(index=False), ""]
+        try:
+            parts += [eff.to_markdown(index=False), ""]
+        except ImportError:  # tabulate not installed
+            parts += ["```", eff.to_string(index=False), "```", ""]
     else:
         parts += ["_efficiency.csv 尚未生成_", ""]
 
