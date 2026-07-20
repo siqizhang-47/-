@@ -125,6 +125,8 @@ class LowCarbonNsDiffTrainer:
             params += list(self.model.occurrence_head.parameters())
         optim = self.new_optimizer(params)
         best = float("inf")
+        patience = int(self.cfg["training"].get("pretrain_patience", 4))
+        bad = 0
         path = os.path.join(self.run_dir, "pretrain_f.pt")
         for epoch in range(epochs):
             self.model.train()
@@ -146,8 +148,14 @@ class LowCarbonNsDiffTrainer:
             print(f"  [F] epoch {epoch+1}: train {np.mean(losses):.5f} val {val_loss:.5f}")
             if val_loss < best:
                 best = val_loss
+                bad = 0
                 self._atomic_save(path, {"epoch": epoch, "best_validation_metric": best,
                                          "stage": "pretrain_f"})
+            else:
+                bad += 1
+                if bad >= patience:
+                    print(f"  [F] early stop at epoch {epoch+1} (best val {best:.5f})")
+                    break
         return path
 
     def _f_loss(self, batch):
@@ -181,6 +189,8 @@ class LowCarbonNsDiffTrainer:
         params = list(self.model.variance_model.parameters())
         optim = self.new_optimizer(params)
         best = float("inf")
+        patience = int(self.cfg["training"].get("pretrain_patience", 4))
+        bad = 0
         path = os.path.join(self.run_dir, "pretrain_g.pt")
 
         def g_loss(batch):
@@ -219,8 +229,14 @@ class LowCarbonNsDiffTrainer:
             print(f"  [G] epoch {epoch+1}: train {np.mean(losses):.5f} val {val_loss:.5f}")
             if val_loss < best:
                 best = val_loss
+                bad = 0
                 self._atomic_save(path, {"epoch": epoch, "best_validation_metric": best,
                                          "stage": "pretrain_g"})
+            else:
+                bad += 1
+                if bad >= patience:
+                    print(f"  [G] early stop at epoch {epoch+1} (best val {best:.5f})")
+                    break
         return path
 
     # ------------------------------------------------------------- sampling
