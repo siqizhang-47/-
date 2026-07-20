@@ -159,7 +159,7 @@ class WaveStitchAdapter(nn.Module):
         return torch.cat(chunks, dim=-1)  # [B,H,D,S]
 
 
-def run_seed(cfg, seed, device, artifacts_root="artifacts"):
+def run_seed(cfg, seed, device, artifacts_root="artifacts", skip_train=False):
     set_seed(seed)
     dm = LowCarbonDataModule(
         cfg.get("data", {}).get("artifacts_dir", os.path.join(artifacts_root, "data", "low_carbon")),
@@ -172,6 +172,15 @@ def run_seed(cfg, seed, device, artifacts_root="artifacts"):
     run_dir = os.path.join(artifacts_root, "runs", "wavestitch", f"seed_{seed}")
     os.makedirs(run_dir, exist_ok=True)
     best_path = os.path.join(run_dir, "best_checkpoint.pt")
+
+    if skip_train:
+        if not os.path.exists(best_path):
+            raise SystemExit(f"checkpoint not found: {best_path}")
+        model.denoiser.load_state_dict(
+            torch.load(best_path, map_location=device, weights_only=False)["denoiser"])
+        print(f"loaded {best_path}, exporting test predictions only")
+        export(cfg, model, dm, seed, device, artifacts_root)
+        return
 
     opt = torch.optim.Adam(model.parameters(), lr=float(tr["learning_rate"]))
     best = float("inf")
@@ -247,6 +256,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3])
+    ap.add_argument("--skip_train", action="store_true", default=False,
+                    help="export test predictions from an existing checkpoint")
     ap.add_argument("--device", default=None)
     ap.add_argument("--gpu", type=int, default=None)
     args = ap.parse_args()
@@ -255,7 +266,7 @@ def main():
     print(f"device: {device}")
     for seed in args.seeds:
         print(f"===== WaveStitch seed {seed} =====")
-        run_seed(cfg, seed, device)
+        run_seed(cfg, seed, device, skip_train=args.skip_train)
 
 
 if __name__ == "__main__":
