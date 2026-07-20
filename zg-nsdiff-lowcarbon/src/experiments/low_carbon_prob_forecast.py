@@ -53,6 +53,7 @@ class LowCarbonNsDiffTrainer:
             cfg.get("data", {}).get("artifacts_dir", os.path.join(artifacts_root, "data", "low_carbon")),
             batch_size=int(cfg["training"]["batch_size"]),
             num_workers=int(cfg["training"].get("num_workers", 4)),
+            test_stride=int(cfg.get("evaluation", {}).get("test_stride", 1)),
         )
         cfg["_gate_pos_weight"] = self.dm.stats["gate_pos_weight"]
         model_cls = ZGNsDiff if (variant == "zg" or self.use_gate) else NsDiffExo
@@ -64,7 +65,10 @@ class LowCarbonNsDiffTrainer:
         self.lr = float(tr["learning_rate"])
         self.clip = float(tr.get("gradient_clip_norm", 1.0))
         self.amp = bool(tr.get("amp", True)) and device.type == "cuda"
-        self.scaler = torch.cuda.amp.GradScaler(enabled=self.amp)
+        try:
+            self.scaler = torch.amp.GradScaler("cuda", enabled=self.amp)
+        except (AttributeError, TypeError):
+            self.scaler = torch.cuda.amp.GradScaler(enabled=self.amp)
         self.loss_cfg = cfg.get("loss", {})
 
         ev = cfg.get("evaluation", {})

@@ -15,6 +15,7 @@ class LowCarbonDataModule:
         batch_size: int = 32,
         num_workers: int = 4,
         pin_memory: bool = True,
+        test_stride: int = 1,
     ):
         if not os.path.exists(os.path.join(artifacts_dir, "preprocess_stats.json")):
             raise FileNotFoundError(
@@ -23,9 +24,14 @@ class LowCarbonDataModule:
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.pin_memory = pin_memory
+        # test_stride > 1 subsamples test forecast origins (e.g. 24 = one
+        # non-overlapping forecast per day). It MUST come from the shared
+        # common config so every model evaluates identical windows — the
+        # prediction-contract alignment check enforces this.
+        self.test_stride = int(test_stride)
         self.train_set = LowCarbonWindowDataset(artifacts_dir, "train")
         self.val_set = LowCarbonWindowDataset(artifacts_dir, "val")
-        self.test_set = LowCarbonWindowDataset(artifacts_dir, "test")
+        self.test_set = LowCarbonWindowDataset(artifacts_dir, "test", stride=self.test_stride)
         self.stats = self.train_set.stats
         self.target_transform = self.train_set.target_transform
 

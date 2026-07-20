@@ -11,7 +11,7 @@ from src.data.target_transform import TargetTransform, WeatherTransform
 
 
 class LowCarbonWindowDataset(Dataset):
-    def __init__(self, artifacts_dir: str, split: str):
+    def __init__(self, artifacts_dir: str, split: str, stride: int = 1):
         assert split in ("train", "val", "test")
         self.split = split
         self.dir = artifacts_dir
@@ -28,7 +28,7 @@ class LowCarbonWindowDataset(Dataset):
         self.timestamps = np.load(os.path.join(artifacts_dir, "timestamps.npy"))
         self.observed = np.load(os.path.join(artifacts_dir, "observed_mask.npy"))
         split_npz = np.load(os.path.join(artifacts_dir, "split_indices.npz"))
-        self.starts = split_npz[f"{split}_starts"]
+        self.starts = split_npz[f"{split}_starts"][:: max(int(stride), 1)]
         self.L = int(split_npz["context_length"])
         self.H = int(split_npz["prediction_length"])
 

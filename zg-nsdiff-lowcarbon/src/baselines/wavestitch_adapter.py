@@ -165,6 +165,7 @@ def run_seed(cfg, seed, device, artifacts_root="artifacts"):
         cfg.get("data", {}).get("artifacts_dir", os.path.join(artifacts_root, "data", "low_carbon")),
         batch_size=int(cfg["training"]["batch_size"]),
         num_workers=int(cfg["training"].get("num_workers", 4)),
+        test_stride=int(cfg.get("evaluation", {}).get("test_stride", 1)),
     )
     model = WaveStitchAdapter(cfg, device).to(device)
     tr = cfg["training"]
