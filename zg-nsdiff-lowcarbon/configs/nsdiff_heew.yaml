@@ -1,6 +1,5 @@
-# Fair weather-conditioned NsDiff baseline (paper table name: NsDiff)
-inherit: low_carbon_common.yaml
-variant: nsdiff
+# Weather-conditioned NsDiff on HEEW
+inherit: heew_common.yaml
 model_name: nsdiff
 
 model:
@@ -12,8 +11,8 @@ model:
   factor: 3
   dropout: 0.05
   activation: gelu
-  condition_dim: 11
-  enc_in: 4
+  condition_dim: 10
+  enc_in: 3
   p_hidden_dims: [64, 64]
   p_hidden_layers: 2
   g_hidden_size: 512
@@ -43,9 +42,9 @@ training:
   num_workers: 4
   pretrain_f_epochs: 20
   pretrain_g_epochs: 15
+  pretrain_patience: 4
   joint_epochs: 50
   patience: 10
 
 sampling:
   chunk_size: 20
-  bernoulli_gate: false

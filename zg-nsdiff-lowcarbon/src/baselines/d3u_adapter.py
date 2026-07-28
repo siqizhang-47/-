@@ -140,7 +140,7 @@ class D3UAdapter(nn.Module):
 def run_seed(cfg, seed, device, artifacts_root="artifacts", skip_train=False):
     set_seed(seed)
     dm = LowCarbonDataModule(
-        cfg.get("data", {}).get("artifacts_dir", os.path.join(artifacts_root, "data", "low_carbon")),
+        cfg.get("data", {}).get("artifacts_dir", os.path.join(artifacts_root, "data", "heew")),
         batch_size=int(cfg["training"]["batch_size"]),
         num_workers=int(cfg["training"].get("num_workers", 4)),
         test_stride=int(cfg.get("evaluation", {}).get("test_stride", 1)),

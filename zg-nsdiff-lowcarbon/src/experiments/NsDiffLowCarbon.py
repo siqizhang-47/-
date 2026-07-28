@@ -1,7 +1,7 @@
-"""NsDiff baseline joint training + single final test (spec sections 9 & 11).
+"""NsDiff joint training + single final test on HEEW.
 
 python -m src.experiments.NsDiffLowCarbon \
-    --config configs/nsdiff_low_carbon.yaml --load_pretrain --seeds 1 2 3
+    --config configs/nsdiff_heew.yaml --load_pretrain --seeds 1
 """
 import argparse
 
@@ -11,12 +11,11 @@ from src.utils.config import get_device, load_config
 
 def run(config, seeds, load_pretrain, device=None, gpu=None, skip_train=False):
     cfg = load_config(config)
-    variant = cfg.get("variant", "nsdiff")
     dev = get_device(device, gpu)
-    print(f"device: {dev}  variant: {variant}  model: {cfg.get('model_name', variant)}")
+    print(f"device: {dev}  model: {cfg.get('model_name', 'nsdiff')}")
     for seed in seeds:
-        print(f"===== {cfg.get('model_name', variant)} joint, seed {seed} =====")
-        trainer = LowCarbonNsDiffTrainer(cfg, variant, seed, dev)
+        print(f"===== {cfg.get('model_name', 'nsdiff')} joint, seed {seed} =====")
+        trainer = LowCarbonNsDiffTrainer(cfg, seed, dev)
         eff = {}
         if not skip_train:
             eff = trainer.train_joint(load_pretrain=load_pretrain)
@@ -26,7 +25,7 @@ def run(config, seeds, load_pretrain, device=None, gpu=None, skip_train=False):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
-    ap.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3])
+    ap.add_argument("--seeds", type=int, nargs="+", default=[1])
     ap.add_argument("--load_pretrain", action="store_true", default=False)
     ap.add_argument("--skip_train", action="store_true", default=False,
                     help="test/export only, from an existing best checkpoint")

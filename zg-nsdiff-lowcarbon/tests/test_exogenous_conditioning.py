@@ -1,6 +1,6 @@
-"""Spec 23.2: with identical target history, changing ONLY the future weather
-must change mu, gx and eps_pred — guards against 'interface accepts weather
-but the network ignores it'."""
+"""With identical target history, changing ONLY the future weather must
+change mu, gx and eps_pred — guards against 'interface accepts weather but
+the network ignores it'."""
 import torch
 
 from src.models.NsDiffExo import NsDiffExo
@@ -32,14 +32,15 @@ def test_future_condition_affects_all_three_paths(tiny_cfg, tiny_batch):
     assert not torch.allclose(eps_a, eps_b), "denoiser ignores future weather"
 
 
-def test_future_condition_alignment():
-    """Spec 23.1: future_condition[b, 0] must be the hour AFTER history end."""
-    import numpy as np
-    from src.data.low_carbon_dataset import LowCarbonWindowDataset  # noqa: F401 (interface reference)
-    # emulate the dataset slicing directly on a synthetic increasing series
-    N, L, H = 50, 10, 4
-    condition = np.arange(N, dtype=np.float32)[:, None]
-    s = 7
-    hist = condition[s: s + L]
-    fut = condition[s + L: s + L + H]
-    assert fut[0, 0] == hist[-1, 0] + 1
+def test_deepvar_uses_future_condition(tiny_cfg, tiny_batch):
+    from src.baselines.deepvar_adapter import DeepVAR
+    torch.manual_seed(0)
+    model = DeepVAR(tiny_cfg, torch.device("cpu"))
+    model.eval()
+    torch.manual_seed(1)
+    s_a = model.sample(tiny_batch, num_samples=4, chunk_size=4)
+    batch_b = {k: v.clone() if torch.is_tensor(v) else v for k, v in tiny_batch.items()}
+    batch_b["future_condition"] = batch_b["future_condition"] + 2.0
+    torch.manual_seed(1)
+    s_b = model.sample(batch_b, num_samples=4, chunk_size=4)
+    assert not torch.allclose(s_a, s_b), "DeepVAR ignores future conditions"

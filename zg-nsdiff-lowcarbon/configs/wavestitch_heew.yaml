@@ -1,9 +1,9 @@
-# WaveStitch baseline adapter (conditional sequence completion), oracle future weather
-inherit: low_carbon_common.yaml
+# WaveStitch baseline adapter on HEEW (conditional sequence completion)
+inherit: heew_common.yaml
 model_name: wavestitch
 
 model:
-  condition_dim: 11
+  condition_dim: 10
   hidden_dim: 128
   n_blocks: 6
 

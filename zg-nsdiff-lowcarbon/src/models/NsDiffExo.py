@@ -1,8 +1,5 @@
-"""NsDiff-Exo backbone: NsDiff with oracle future exogenous conditioning on
-all three paths (mean f_phi, variance g_psi, denoiser eps/sigma_theta).
-
-This is the fair weather-conditioned NsDiff baseline (paper table name
-"NsDiff") and the shared backbone of ZG-NsDiff (spec sections 7 & 11).
+"""NsDiff-Exo: NsDiff with oracle future exogenous conditioning on all
+three paths (mean f_phi, variance g_psi, denoiser eps/sigma_theta).
 """
 from types import SimpleNamespace
 
@@ -35,8 +32,8 @@ class NsDiffExo(nn.Module):
         self.L = int(data["context_length"])
         self.H = int(data["prediction_length"])
         self.label_len = int(data.get("label_length", self.L // 2))
-        self.enc_in = int(m.get("enc_in", 4))
-        self.condition_dim = int(m.get("condition_dim", 11))
+        self.enc_in = int(m.get("enc_in", 3))
+        self.condition_dim = int(m.get("condition_dim", 10))
         self.rolling_length = int(d.get("rolling_length", 24))
         self.device = device
 

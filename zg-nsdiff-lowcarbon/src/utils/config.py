@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import yaml
 
-DEFAULT_GPU = 6  # experiments run on GPU index 6 unless CUDA_VISIBLE_DEVICES already masks it
+DEFAULT_GPU = 0  # experiments run on GPU index 0 unless CUDA_VISIBLE_DEVICES already masks it
 
 
 def load_yaml(path):

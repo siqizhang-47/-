@@ -2,7 +2,6 @@
 import os
 
 import numpy as np
-import torch
 from torch.utils.data import DataLoader
 
 from src.data.low_carbon_dataset import LowCarbonWindowDataset
@@ -11,7 +10,7 @@ from src.data.low_carbon_dataset import LowCarbonWindowDataset
 class LowCarbonDataModule:
     def __init__(
         self,
-        artifacts_dir: str = "artifacts/data/low_carbon",
+        artifacts_dir: str = "artifacts/data/heew",
         batch_size: int = 32,
         num_workers: int = 4,
         pin_memory: bool = True,
@@ -26,18 +25,13 @@ class LowCarbonDataModule:
         self.pin_memory = pin_memory
         # test_stride > 1 subsamples test forecast origins (e.g. 24 = one
         # non-overlapping forecast per day). It MUST come from the shared
-        # common config so every model evaluates identical windows — the
-        # prediction-contract alignment check enforces this.
+        # common config so every model evaluates identical windows.
         self.test_stride = int(test_stride)
         self.train_set = LowCarbonWindowDataset(artifacts_dir, "train")
         self.val_set = LowCarbonWindowDataset(artifacts_dir, "val")
         self.test_set = LowCarbonWindowDataset(artifacts_dir, "test", stride=self.test_stride)
         self.stats = self.train_set.stats
         self.target_transform = self.train_set.target_transform
-
-    @property
-    def gate_pos_weight(self) -> torch.Tensor:
-        return torch.tensor(self.stats["gate_pos_weight"], dtype=torch.float32)
 
     @property
     def train_scale_raw(self) -> np.ndarray:

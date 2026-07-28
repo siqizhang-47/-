@@ -1,5 +1,5 @@
-# D3U baseline adapter (deterministic + residual diffusion), oracle future weather
-inherit: low_carbon_common.yaml
+# D3U baseline adapter on HEEW (deterministic + residual diffusion)
+inherit: heew_common.yaml
 model_name: d3u
 
 model:
@@ -11,8 +11,8 @@ model:
   factor: 3
   dropout: 0.05
   activation: gelu
-  condition_dim: 11
-  enc_in: 4
+  condition_dim: 10
+  enc_in: 3
   p_hidden_dims: [64, 64]
   p_hidden_layers: 2
   denoise_hidden_dim: 128

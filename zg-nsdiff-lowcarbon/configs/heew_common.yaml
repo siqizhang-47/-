@@ -1,0 +1,35 @@
+# Common HEEW experiment config
+data:
+  input_xlsx: data/HEEW.xlsx
+  sheet_name: Aligned_Data
+  artifacts_dir: artifacts/data/heew
+
+  target_columns: ["Electricity", "Cooling", "Heat"]
+  weather_columns: ["Temperature", "Dew Point", "Humidity"]
+
+  context_length: 168
+  prediction_length: 24
+  label_length: 84
+  horizon: 1
+
+  train_ratio: 0.70
+  val_ratio: 0.10
+  test_ratio: 0.20
+
+  future_weather_mode: oracle_observed
+
+evaluation:
+  validation_num_samples: 100
+  test_num_samples: 1000
+  prediction_interval: [0.025, 0.975]
+  seeds: [1]
+  shard_windows: 256
+  # cap for per-epoch validation sampling (fixed prefix, same for all models);
+  # null = full validation set
+  val_max_batches: 100
+  # test forecast-origin stride: 24 = one non-overlapping 24h forecast per day;
+  # set to 1 for every hourly origin (much slower). Shared by ALL models.
+  test_stride: 24
+
+# GPU index used when CUDA_VISIBLE_DEVICES is not set (scripts export 0)
+gpu: 0

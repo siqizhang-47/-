@@ -23,6 +23,7 @@ from tqdm import tqdm
 
 from src.baselines.prediction_contract import PredictionShardWriter
 from src.data.low_carbon_datamodule import LowCarbonDataModule
+from src.data.low_carbon_schema import NUM_TARGETS
 from src.experiments.low_carbon_prob_forecast import to_device
 from src.utils.config import get_device, load_config, set_seed
 
@@ -84,7 +85,7 @@ class WaveStitchAdapter(nn.Module):
         data = cfg["data"]
         self.L = int(data["context_length"])
         self.H = int(data["prediction_length"])
-        self.enc_in = 4
+        self.enc_in = NUM_TARGETS
         d = cfg["diffusion"]
         self.steps = int(d.get("steps", 50))
         betas = torch.linspace(float(d.get("beta_start", 1e-4)),
@@ -162,7 +163,7 @@ class WaveStitchAdapter(nn.Module):
 def run_seed(cfg, seed, device, artifacts_root="artifacts", skip_train=False):
     set_seed(seed)
     dm = LowCarbonDataModule(
-        cfg.get("data", {}).get("artifacts_dir", os.path.join(artifacts_root, "data", "low_carbon")),
+        cfg.get("data", {}).get("artifacts_dir", os.path.join(artifacts_root, "data", "heew")),
         batch_size=int(cfg["training"]["batch_size"]),
         num_workers=int(cfg["training"].get("num_workers", 4)),
         test_stride=int(cfg.get("evaluation", {}).get("test_stride", 1)),

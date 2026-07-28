@@ -1,31 +1,16 @@
-"""Fixed schema of the low-carbon community dataset (spec section 3)."""
+"""Fixed schema of the HEEW dataset."""
 
-SHEET_NAME = "Merged"
-EXCLUDED_SHEETS = ["Anomaly_Log", "Anomaly_Summary"]
+SHEET_NAME = "Aligned_Data"
+EXCLUDED_SHEETS = ["Missing_Report"]
 
-DATE_COLUMN = "Date"
+# timestamp is assembled from these columns (no single Date column)
+TIME_COLUMNS = ["Year", "Month", "Day", "Hour"]
 
-TARGET_COLUMNS = [
-    "[Electricity] Electricity load (kW)",
-    "[Electricity] Cooling load (kW)",
-    "[Electricity] Heating load (kW)",
-    "[Power] Solar energy generation (kW)",
-]
-TARGET_NAMES = ["electricity", "cooling", "heating", "pv"]
-ZERO_TARGET_INDICES = [1, 2, 3]          # cooling, heating, pv
-ZERO_TARGET_NAMES = ["cooling", "heating", "pv"]
-# target index -> gate index
-TARGET_TO_GATE = {1: 0, 2: 1, 3: 2}
+TARGET_COLUMNS = ["Electricity", "Cooling", "Heat"]
+TARGET_NAMES = ["electricity", "cooling", "heat"]
 
-WEATHER_COLUMNS = [
-    "[Weather] Horizontal solar irradition (W)",
-    "[Weather] Outdoor air temperature (℃)",
-    "[Weather] Outdoor air humidity (%)",
-    "[Weather] Wind speed (m/s)",
-]
-WEATHER_NAMES = ["irradiance", "temperature", "humidity", "wind_speed"]
-
-FORBIDDEN_COLUMN_KEYWORDS = ["Gas engine", "Fuel cell", "Wind direction"]
+WEATHER_COLUMNS = ["Temperature", "Dew Point", "Humidity"]
+WEATHER_NAMES = ["temperature", "dew_point", "humidity"]
 
 CALENDAR_NAMES = [
     "sin_hour",
@@ -37,12 +22,12 @@ CALENDAR_NAMES = [
     "is_weekend",
 ]
 
-NUM_TARGETS = len(TARGET_NAMES)          # 4
-NUM_WEATHER = len(WEATHER_COLUMNS)       # 4
+NUM_TARGETS = len(TARGET_NAMES)          # 3
+NUM_WEATHER = len(WEATHER_COLUMNS)       # 3
 NUM_CALENDAR = len(CALENDAR_NAMES)       # 7
-CONDITION_DIM = NUM_WEATHER + NUM_CALENDAR  # 11
+CONDITION_DIM = NUM_WEATHER + NUM_CALENDAR  # 10
 
-EXPECTED_ROWS = 187752
+EXPECTED_ROWS = 78888
 EXPECTED_FREQ_SECONDS = 3600
 
 TRAIN_RATIO = 0.70

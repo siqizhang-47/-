@@ -1,7 +1,7 @@
-"""One-shot preprocessing: Excel -> numpy artifacts (spec sections 3 & 5.3).
+"""One-shot preprocessing: HEEW Excel -> numpy artifacts.
 
 Usage:
-    python -m src.data.low_carbon_preprocess --config configs/low_carbon_common.yaml
+    python -m src.data.low_carbon_preprocess --config configs/heew_common.yaml
 """
 import argparse
 import os
@@ -39,7 +39,7 @@ def run(config_path: str, output_root: str = "artifacts"):
     cfg = load_yaml(config_path)
     dcfg = cfg["data"]
     xlsx = dcfg["input_xlsx"]
-    out_dir = os.path.join(output_root, "data", "low_carbon")
+    out_dir = os.path.join(output_root, "data", "heew")
     os.makedirs(out_dir, exist_ok=True)
 
     steps = tqdm(total=7, desc="preprocess", ncols=100)
@@ -51,12 +51,10 @@ def run(config_path: str, output_root: str = "artifacts"):
 
     # 2. schema audit ----------------------------------------------------
     steps.set_postfix_str("schema audit")
-    for col in [S.DATE_COLUMN] + S.TARGET_COLUMNS + S.WEATHER_COLUMNS:
+    for col in S.TIME_COLUMNS + S.TARGET_COLUMNS + S.WEATHER_COLUMNS:
         assert col in df.columns, f"missing column: {col}"
-    for kw in S.FORBIDDEN_COLUMN_KEYWORDS:
-        for col in df.columns:
-            assert kw.lower() not in col.lower(), f"forbidden column present: {col}"
-    ts = pd.DatetimeIndex(pd.to_datetime(df[S.DATE_COLUMN]))
+    ts = pd.DatetimeIndex(pd.to_datetime(
+        df[S.TIME_COLUMNS].rename(columns=str.lower)))
     epoch_s = ((ts - pd.Timestamp(0)) // pd.Timedelta(seconds=1)).to_numpy(dtype=np.int64)
     diffs = np.diff(epoch_s)
     assert (diffs == S.EXPECTED_FREQ_SECONDS).all(), "timestamps are not hourly-continuous"
@@ -67,7 +65,7 @@ def run(config_path: str, output_root: str = "artifacts"):
     steps.set_postfix_str("building arrays")
     target_raw = df[S.TARGET_COLUMNS].to_numpy(dtype=np.float64)
     weather_raw = df[S.WEATHER_COLUMNS].to_numpy(dtype=np.float64)
-    observed = np.isfinite(target_raw)              # [N,4] bool, NaN -> False
+    observed = np.isfinite(target_raw)
     weather_observed = np.isfinite(weather_raw)
     calendar = build_calendar(ts)
     timestamps = epoch_s
@@ -95,11 +93,6 @@ def run(config_path: str, output_root: str = "artifacts"):
     wtf = WeatherTransform.fit(weather_raw, weather_observed, train_end)
     stats = dict(ttf.stats)
     stats.update(wtf.to_stats())
-    stats["target_names"] = S.TARGET_NAMES
-    stats["zero_target_indices"] = S.ZERO_TARGET_INDICES
-    stats["zero_thresholds"] = cfg.get("transform", {}).get(
-        "zero_thresholds", {"cooling": 0.0, "heating": 0.0, "pv": 0.0}
-    )
     stats["context_length"] = L
     stats["prediction_length"] = H
     stats["train_end"] = int(train_end)
@@ -125,10 +118,6 @@ def run(config_path: str, output_root: str = "artifacts"):
         context_length=L,
         prediction_length=H,
     )
-    try:
-        df.to_parquet(os.path.join(out_dir, "values_raw.parquet"))
-    except Exception as e:  # parquet engine optional
-        print(f"[warn] parquet export skipped: {e}")
     save_json(stats, os.path.join(out_dir, "preprocess_stats.json"))
     steps.update(1)
 
@@ -140,10 +129,6 @@ def run(config_path: str, output_root: str = "artifacts"):
         "time_end": str(ts[-1]),
         "missing_per_target": {
             name: int((~observed[:, d]).sum()) for d, name in enumerate(S.TARGET_NAMES)
-        },
-        "zero_counts": {
-            name: int(((target_raw[:, d] == 0.0) & observed[:, d]).sum())
-            for d, name in enumerate(S.TARGET_NAMES)
         },
         "windows": {
             split: {
@@ -167,11 +152,10 @@ def run(config_path: str, output_root: str = "artifacts"):
         os.path.join(out_dir, "split_manifest.json"),
     )
     repro_dir = os.path.join(output_root, "reproducibility")
-    manifest = {"input_xlsx": os.path.abspath(xlsx), "input_sha256": sha256_file(xlsx)}
-    src_zip = cfg.get("source_zip_sha256")
-    if src_zip:
-        manifest["nsdiff_source_zip_sha256"] = src_zip
-    save_json(manifest, os.path.join(repro_dir, "source_manifest.json"))
+    save_json(
+        {"input_xlsx": os.path.abspath(xlsx), "input_sha256": sha256_file(xlsx)},
+        os.path.join(repro_dir, "source_manifest.json"),
+    )
     steps.update(1)
     steps.close()
 

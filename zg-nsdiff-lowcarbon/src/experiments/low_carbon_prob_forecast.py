@@ -1,9 +1,9 @@
-"""Shared training / validation / test driver for NsDiff-Exo and ZG-NsDiff
-(spec section 9).
+"""Shared training / validation / test driver for the weather-conditioned
+NsDiff on HEEW.
 
 Per epoch: train + validate (mean normalized CRPS), keep best checkpoint.
 After training: load best, test ONCE with the full sample budget, write the
-unified prediction shards.  The test set is never used for model selection.
+unified prediction shards. The test set is never used for model selection.
 """
 import csv
 import os
@@ -15,10 +15,10 @@ from tqdm import tqdm
 
 from src.baselines.prediction_contract import PredictionShardWriter
 from src.data.low_carbon_datamodule import LowCarbonDataModule
-from src.data.low_carbon_schema import ZERO_TARGET_INDICES, TARGET_NAMES
+from src.data.low_carbon_schema import TARGET_NAMES
 from src.evaluation.empirical_crps import crps_samples_torch
+from src.layer.masked_reduction import masked_mean
 from src.models.NsDiffExo import NsDiffExo
-from src.models.ZGNsDiff import ZGNsDiff, apply_gate_and_inverse, build_magnitude_mask
 from src.utils.config import rng_state_dict, set_seed
 
 EPS = 1e-8
@@ -29,35 +29,21 @@ def to_device(batch, device):
 
 
 class LowCarbonNsDiffTrainer:
-    """variant: 'nsdiff' (baseline) or 'zg' (ZG-NsDiff, incl. ablations)."""
-
-    def __init__(self, cfg: dict, variant: str, seed: int, device,
-                 artifacts_root: str = "artifacts"):
-        assert variant in ("nsdiff", "zg")
+    def __init__(self, cfg: dict, seed: int, device, artifacts_root: str = "artifacts"):
         self.cfg = cfg
-        self.variant = variant
         self.seed = seed
         self.device = device
         self.artifacts_root = artifacts_root
-
-        zg_cfg = cfg.get("zg", {})
-        self.use_gate = bool(zg_cfg.get("use_gate", variant == "zg"))
-        self.use_mask = bool(zg_cfg.get("use_mask", variant == "zg"))
-        self.bernoulli_sampling = bool(
-            cfg.get("sampling", {}).get("bernoulli_gate", variant == "zg")
-        )
-        self.model_name = cfg.get("model_name", "zg_nsdiff" if variant == "zg" else "nsdiff")
+        self.model_name = cfg.get("model_name", "nsdiff")
 
         set_seed(seed)
         self.dm = LowCarbonDataModule(
-            cfg.get("data", {}).get("artifacts_dir", os.path.join(artifacts_root, "data", "low_carbon")),
+            cfg.get("data", {}).get("artifacts_dir", os.path.join(artifacts_root, "data", "heew")),
             batch_size=int(cfg["training"]["batch_size"]),
             num_workers=int(cfg["training"].get("num_workers", 4)),
             test_stride=int(cfg.get("evaluation", {}).get("test_stride", 1)),
         )
-        cfg["_gate_pos_weight"] = self.dm.stats["gate_pos_weight"]
-        model_cls = ZGNsDiff if (variant == "zg" or self.use_gate) else NsDiffExo
-        self.model = model_cls(cfg, device).to(device)
+        self.model = NsDiffExo(cfg, device).to(device)
         self.transform = self.dm.target_transform
         self.train_scale = torch.tensor(self.dm.train_scale_raw, dtype=torch.float64)
 
@@ -75,7 +61,7 @@ class LowCarbonNsDiffTrainer:
         self.val_num_samples = int(ev.get("validation_num_samples", 100))
         self.test_num_samples = int(ev.get("test_num_samples", 1000))
         self.chunk_size = int(cfg.get("sampling", {}).get("chunk_size", 20))
-        self.val_max_batches = ev.get("val_max_batches")  # optional runtime cap
+        self.val_max_batches = ev.get("val_max_batches")
         self.shard_windows = int(ev.get("shard_windows", 256))
 
         self.run_dir = os.path.join(artifacts_root, "runs", self.model_name, f"seed_{seed}")
@@ -84,13 +70,17 @@ class LowCarbonNsDiffTrainer:
 
     # ------------------------------------------------------------- helpers
     def continuous_mask(self, batch):
-        if self.use_mask:
-            return build_magnitude_mask(batch["future_observed"], batch["future_active"])
         return batch["future_observed"].clone()
 
     def new_optimizer(self, params):
         name = self.cfg["training"].get("optimizer", "Adam")
         return getattr(torch.optim, name)(params, lr=self.lr)
+
+    def _autocast(self):
+        try:
+            return torch.amp.autocast("cuda", enabled=self.amp)
+        except (AttributeError, TypeError):
+            return torch.cuda.amp.autocast(enabled=self.amp)
 
     def _atomic_save(self, path, extra=None):
         state = {
@@ -101,8 +91,6 @@ class LowCarbonNsDiffTrainer:
             "preprocess_stats": self.dm.stats,
             "seed": self.seed,
         }
-        if hasattr(self.model, "occurrence_head"):
-            state["occurrence_head"] = self.model.occurrence_head.state_dict()
         state.update(rng_state_dict())
         if extra:
             state.update(extra)
@@ -110,19 +98,17 @@ class LowCarbonNsDiffTrainer:
         torch.save(state, tmp)
         os.replace(tmp, path)
 
-    def load_checkpoint(self, path, modules=("mean_model", "variance_model", "denoiser", "occurrence_head")):
+    def load_checkpoint(self, path, modules=("mean_model", "variance_model", "denoiser")):
         state = torch.load(path, map_location=self.device, weights_only=False)
         for name in modules:
             if name in state and hasattr(self.model, name):
                 getattr(self.model, name).load_state_dict(state[name])
         return state
 
-    # -------------------------------------------------------- pretrain F(+gate)
+    # ------------------------------------------------------------ pretrain F
     def pretrain_f(self):
         epochs = int(self.cfg["training"].get("pretrain_f_epochs", 20))
         params = list(self.model.mean_model.parameters())
-        if self.use_gate:
-            params += list(self.model.occurrence_head.parameters())
         optim = self.new_optimizer(params)
         best = float("inf")
         patience = int(self.cfg["training"].get("pretrain_patience", 4))
@@ -131,11 +117,11 @@ class LowCarbonNsDiffTrainer:
         for epoch in range(epochs):
             self.model.train()
             losses = []
-            bar = tqdm(self.dm.train_loader(), desc=f"[F{'+gate' if self.use_gate else ''}] epoch {epoch+1}/{epochs}", ncols=110)
+            bar = tqdm(self.dm.train_loader(), desc=f"[F] epoch {epoch+1}/{epochs}", ncols=110)
             for batch in bar:
                 batch = to_device(batch, self.device)
                 optim.zero_grad(set_to_none=True)
-                with torch.cuda.amp.autocast(enabled=self.amp):
+                with self._autocast():
                     loss = self._f_loss(batch)
                 self.scaler.scale(loss).backward()
                 self.scaler.unscale_(optim)
@@ -159,17 +145,9 @@ class LowCarbonNsDiffTrainer:
         return path
 
     def _f_loss(self, batch):
-        from src.layer.masked_reduction import masked_mean
-        mu, future_hidden = self.model.forward_mean(batch)
-        mask = self.continuous_mask(batch)
-        loss = masked_mean((mu - batch["future_target"]).square(), mask)
-        if self.use_gate:
-            gate_logits = self.model.gate_logits_from_hidden(future_hidden)
-            gate_observed = batch["future_observed"][..., ZERO_TARGET_INDICES]
-            loss = loss + float(self.loss_cfg.get("lambda_gate", 0.5)) * self.model.gate_loss(
-                gate_logits, batch["future_active"], gate_observed
-            )
-        return loss
+        mu, _ = self.model.forward_mean(batch)
+        return masked_mean((mu - batch["future_target"]).square(),
+                           self.continuous_mask(batch))
 
     @torch.no_grad()
     def _f_val(self):
@@ -183,7 +161,6 @@ class LowCarbonNsDiffTrainer:
 
     # ------------------------------------------------------------ pretrain G
     def pretrain_g(self):
-        from src.layer.masked_reduction import masked_mean
         from src.utils.sigma import wv_sigma_trailing
         epochs = int(self.cfg["training"].get("pretrain_g_epochs", 15))
         params = list(self.model.variance_model.parameters())
@@ -209,7 +186,7 @@ class LowCarbonNsDiffTrainer:
             for batch in bar:
                 batch = to_device(batch, self.device)
                 optim.zero_grad(set_to_none=True)
-                with torch.cuda.amp.autocast(enabled=self.amp):
+                with self._autocast():
                     loss = g_loss(batch)
                 self.scaler.scale(loss).backward()
                 self.scaler.unscale_(optim)
@@ -242,40 +219,25 @@ class LowCarbonNsDiffTrainer:
     # ------------------------------------------------------------- sampling
     @torch.no_grad()
     def sample_raw(self, batch, num_samples, generator=None, progress=False):
-        """Model-space sampling -> raw kW samples [B,H,4,S] (+ gate_prob or None)."""
         magnitude = self.model.sample_trajectories(
             batch, num_samples, self.chunk_size, generator, progress=progress
-        )  # cpu [B,H,4,S]
-        gate_prob = None
-        if self.use_gate:
-            gate_prob = self.model.predict_gate_prob(batch).cpu()      # [B,H,3]
-            if self.bernoulli_sampling:
-                gates = ZGNsDiff.sample_gates(gate_prob, num_samples)  # [B,H,3,S]
-            else:
-                gates = (gate_prob > 0.5).float().unsqueeze(-1).expand(
-                    *gate_prob.shape, num_samples
-                )
-            raw = apply_gate_and_inverse(magnitude, gates, self.transform)
-        else:
-            raw = self.transform.inverse_torch(magnitude, target_dim=2)
-        return raw, gate_prob
+        )  # cpu [B,H,D,S]
+        return self.transform.inverse_torch(magnitude, target_dim=2), None
 
     # ------------------------------------------------------------ validation
     @torch.no_grad()
     def validate_ncrps(self):
-        """Mean normalized CRPS on the validation split (gated for ZG)."""
         self.model.eval()
         crps_sum = torch.zeros(len(TARGET_NAMES), dtype=torch.float64)
         count = 0
-        loader = self.dm.val_loader()
-        bar = tqdm(loader, desc="  val NCRPS", ncols=110, leave=False)
+        bar = tqdm(self.dm.val_loader(), desc="  val NCRPS", ncols=110, leave=False)
         for bi, batch in enumerate(bar):
             if self.val_max_batches is not None and bi >= int(self.val_max_batches):
                 break
             batch = to_device(batch, self.device)
             raw, _ = self.sample_raw(batch, self.val_num_samples)
-            truth = batch["future_target_raw"].cpu().double()   # [B,H,4]
-            c = crps_samples_torch(raw.double(), truth)         # [B,H,4]
+            truth = batch["future_target_raw"].cpu().double()
+            c = crps_samples_torch(raw.double(), truth)
             crps_sum += c.sum(dim=(0, 1))
             count += c.shape[0] * c.shape[1]
         crps_var = crps_sum / max(count, 1)
@@ -291,7 +253,7 @@ class LowCarbonNsDiffTrainer:
             f_path = os.path.join(self.run_dir, "pretrain_f.pt")
             g_path = os.path.join(self.run_dir, "pretrain_g.pt")
             if os.path.exists(f_path):
-                self.load_checkpoint(f_path, modules=("mean_model", "occurrence_head"))
+                self.load_checkpoint(f_path, modules=("mean_model",))
                 print(f"loaded pretrain F: {f_path}")
             if os.path.exists(g_path):
                 self.load_checkpoint(g_path, modules=("variance_model",))
@@ -302,7 +264,7 @@ class LowCarbonNsDiffTrainer:
             {"params": self.model.mean_model.parameters()},
             {"params": self.model.variance_model.parameters()},
             {"params": self.model.denoiser.parameters()},
-        ] + ([{"params": self.model.occurrence_head.parameters()}] if self.use_gate else []))
+        ])
 
         best = float("inf")
         bad_epochs = 0
@@ -311,7 +273,7 @@ class LowCarbonNsDiffTrainer:
             torch.cuda.reset_peak_memory_stats(self.device)
 
         for epoch in range(epochs):
-            set_seed(self.seed + epoch)  # resumable reproducibility as in original
+            set_seed(self.seed + epoch)
             self.model.train()
             losses, sub_logs = [], {}
             bar = tqdm(self.dm.train_loader(),
@@ -320,7 +282,7 @@ class LowCarbonNsDiffTrainer:
                 batch = to_device(batch, self.device)
                 optim.zero_grad(set_to_none=True)
                 mask = self.continuous_mask(batch)
-                with torch.cuda.amp.autocast(enabled=self.amp):
+                with self._autocast():
                     loss, logs, _ = self.model.loss(batch, mask, self.loss_cfg)
                 self.scaler.scale(loss).backward()
                 self.scaler.unscale_(optim)
@@ -359,7 +321,6 @@ class LowCarbonNsDiffTrainer:
     # -------------------------------------------------------------------- test
     @torch.no_grad()
     def test_and_export(self, efficiency_extra=None):
-        """Load best checkpoint, run the single final test pass, write shards."""
         self.load_checkpoint(self.best_path)
         self.model.eval()
         pred_dir = os.path.join(self.artifacts_root, "predictions",
@@ -374,23 +335,17 @@ class LowCarbonNsDiffTrainer:
             "checkpoint": os.path.abspath(self.best_path),
             "config_hash": self.cfg.get("_config_hash", ""),
         })
-        gen = torch.Generator(device="cpu")
-        gen.manual_seed(self.seed * 1000 + 7)
-
-        buf = {"samples": [], "truth": [], "timestamps": [], "fsi": [], "gate": []}
+        buf = {"samples": [], "truth": [], "timestamps": [], "fsi": []}
         n_buf = 0
         t0 = time.time()
         n_traj = 0
-        loader = self.dm.test_loader()
-        for batch in tqdm(loader, desc=f"[test:{self.model_name}]", ncols=110):
+        for batch in tqdm(self.dm.test_loader(), desc=f"[test:{self.model_name}]", ncols=110):
             batch = to_device(batch, self.device)
-            raw, gate_prob = self.sample_raw(batch, self.test_num_samples, progress=True)
+            raw, _ = self.sample_raw(batch, self.test_num_samples, progress=True)
             buf["samples"].append(raw.float().numpy())
             buf["truth"].append(batch["future_target_raw"].cpu().numpy())
             buf["timestamps"].append(batch["timestamps"].cpu().numpy())
             buf["fsi"].append(batch["forecast_start_index"].cpu().numpy())
-            if gate_prob is not None:
-                buf["gate"].append(gate_prob.numpy())
             n_buf += raw.shape[0]
             n_traj += raw.shape[0] * self.test_num_samples
             if n_buf >= self.shard_windows:
@@ -406,10 +361,6 @@ class LowCarbonNsDiffTrainer:
             "seed": self.seed,
             "total_parameters": sum(p.numel() for p in self.model.parameters()),
             "trainable_parameters": sum(p.numel() for p in self.model.parameters() if p.requires_grad),
-            "additional_gate_parameters": (
-                sum(p.numel() for p in self.model.occurrence_head.parameters())
-                if hasattr(self.model, "occurrence_head") else 0
-            ),
             "checkpoint_size_mb": os.path.getsize(self.best_path) / 2**20,
             "sampling_seconds": sampling_seconds,
             "milliseconds_per_trajectory": 1000.0 * sampling_seconds / max(n_traj, 1),
@@ -427,7 +378,6 @@ class LowCarbonNsDiffTrainer:
             np.concatenate(buf["truth"]),
             np.concatenate(buf["timestamps"]),
             np.concatenate(buf["fsi"]),
-            np.concatenate(buf["gate"]) if buf["gate"] else None,
         )
         for k in buf:
             buf[k] = []
@@ -437,9 +387,9 @@ class LowCarbonNsDiffTrainer:
         path = os.path.join("results", "efficiency.csv")
         exists = os.path.exists(path)
         fields = ["model", "seed", "total_parameters", "trainable_parameters",
-                  "additional_gate_parameters", "checkpoint_size_mb",
-                  "training_seconds", "peak_gpu_memory_mb", "sampling_seconds",
-                  "milliseconds_per_trajectory", "samples_per_second", "best_val_ncrps"]
+                  "checkpoint_size_mb", "training_seconds", "peak_gpu_memory_mb",
+                  "sampling_seconds", "milliseconds_per_trajectory",
+                  "samples_per_second", "best_val_ncrps"]
         with open(path, "a", newline="") as f:
             w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
             if not exists:

@@ -1,7 +1,7 @@
-"""Stage F (NsDiff) / Stage F+Gate (ZG-NsDiff) pretraining CLI (spec 9.1/9.2).
+"""Stage F mean-network pretraining CLI.
 
 python -m src.experiments.pretrain_f_low_carbon \
-    --config configs/nsdiff_low_carbon.yaml --seeds 1 2 3
+    --config configs/nsdiff_heew.yaml --seeds 1
 """
 import argparse
 
@@ -12,18 +12,17 @@ from src.utils.config import get_device, load_config
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
-    ap.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3])
+    ap.add_argument("--seeds", type=int, nargs="+", default=[1])
     ap.add_argument("--device", default=None)
     ap.add_argument("--gpu", type=int, default=None)
     args = ap.parse_args()
 
     cfg = load_config(args.config)
-    variant = cfg.get("variant", "nsdiff")
     device = get_device(args.device, args.gpu)
-    print(f"device: {device}  variant: {variant}")
+    print(f"device: {device}")
     for seed in args.seeds:
         print(f"===== pretrain F, seed {seed} =====")
-        trainer = LowCarbonNsDiffTrainer(cfg, variant, seed, device)
+        trainer = LowCarbonNsDiffTrainer(cfg, seed, device)
         trainer.pretrain_f()
 
 

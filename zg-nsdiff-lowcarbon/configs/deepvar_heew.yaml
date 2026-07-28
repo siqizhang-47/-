@@ -1,0 +1,21 @@
+# DeepVAR baseline on HEEW (autoregressive LSTM, full multivariate Gaussian)
+inherit: heew_common.yaml
+model_name: deepvar
+
+model:
+  condition_dim: 10
+  hidden_dim: 128
+  num_layers: 2
+  dropout: 0.1
+
+training:
+  optimizer: Adam
+  learning_rate: 0.001
+  batch_size: 64
+  gradient_clip_norm: 1.0
+  num_workers: 4
+  epochs: 40
+  patience: 5
+
+sampling:
+  chunk_size: 50
