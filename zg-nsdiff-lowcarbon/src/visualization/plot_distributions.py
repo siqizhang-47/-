@@ -18,9 +18,9 @@ from scipy.stats import gaussian_kde
 from src.baselines.prediction_contract import iter_shards
 from src.data.low_carbon_schema import TARGET_NAMES
 
-MODEL_LABEL = {"deepvar": "DeepVAR", "d3u": "D3U", "wavestitch": "WaveStitch",
+MODEL_LABEL = {"deepvar": "DeepVAR", "d3u": "WCRD", "wavestitch": "WaveStitch",
                "nsdiff": "NsDiff"}
-MODEL_ORDER = ["deepvar", "d3u", "wavestitch", "nsdiff"]
+MODEL_ORDER = ["deepvar", "wavestitch", "nsdiff", "d3u"]
 VAR_LABEL = {"electricity": "Electricity", "cooling": "Cooling", "heat": "Heat"}
 SUB = "abc"
 

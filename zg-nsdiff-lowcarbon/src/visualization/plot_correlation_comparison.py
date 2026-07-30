@@ -80,7 +80,7 @@ def main():
     ap.add_argument("--prediction_root", default="artifacts/predictions")
     ap.add_argument("--model", default=None,
                     help="model whose samples form the Generated panel "
-                         "(default: nsdiff if present, else first found)")
+                         "(default: d3u/WCRD if present, else first found)")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--samples_per_shard", type=int, default=20)
     ap.add_argument("--output", default="figures/figure2_correlation_matrices.png")
@@ -91,7 +91,7 @@ def main():
                       args.prediction_root, "*", f"seed_{args.seed}")))}
     if not model_dirs:
         raise SystemExit(f"no predictions under {args.prediction_root}")
-    model = args.model or ("nsdiff" if "nsdiff" in model_dirs
+    model = args.model or ("d3u" if "d3u" in model_dirs
                            else next(iter(model_dirs)))
     if model not in model_dirs:
         raise SystemExit(f"model '{model}' not found; available: {list(model_dirs)}")
