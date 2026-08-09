@@ -1,0 +1,87 @@
+# TimeXer-conditioned NsDiff on the HEEW dataset
+# Values follow the design document (sections 15 and 18).
+# Any key here can be overridden on the command line, e.g. --lr_mean 5e-4.
+
+data:
+  data_path: data/HEEW.xlsx
+  cache_dir: data/cache
+  window: 168          # L, past 7 days
+  horizon: 24          # H, next 24 hours
+  n_targets: 4         # Electricity, PV, Cooling, Heat
+  n_exo: 16            # 11 calendar channels + 4 weather + ClearskyGHI
+  train_years: [2014, 2020]
+  val_years: [2021, 2021]
+  test_years: [2022, 2022]
+
+model:
+  patch_len: 24        # patch length = stride -> 7 patches per variable
+  d_model: 128         # drop to 64 if GPU memory is tight
+  n_heads: 8
+  e_layers: 2
+  d_ff: 512
+  dropout: 0.1
+  activation: gelu
+  head_hidden: 256
+  head_layers: 2
+  sigma_floor: 0.0001
+  temporal_smoothing: false   # optional light self-attention in f_phi / g_psi
+  denoiser_hidden: 128
+
+diffusion:
+  diffusion_steps: 20
+  beta_schedule: linear
+  beta_start: 0.0001
+  beta_end: 0.01
+  rolling_length: 96   # trailing window for the empirical target variance y_sigma
+  num_samples: 100     # S, generated scenarios
+  sample_chunk: 25     # scenarios generated per reverse pass (memory knob)
+
+ablation:
+  ablation: A7         # A0 | A3 | A4 | A5 | A6 | A7
+
+optimisation:
+  batch_size: 64
+  eval_batch_size: 16
+  num_workers: 4
+  grad_clip: 1.0
+  optimizer: AdamW
+
+  epochs_mean: 50
+  lr_mean: 0.001
+  wd_mean: 0.0001
+  patience_mean: 8
+  mean_loss: mse       # mse | huber
+
+  epochs_scale: 30
+  lr_scale_head: 0.0005
+  lr_scale_encoder: 0.0001
+  freeze_encoder_epochs: 5
+  patience_scale: 8
+
+  epochs_joint: 20
+  lr_joint: 0.0003
+  lambda_sigma: 0.1    # try 0.01 / 0.1 / 1.0
+  patience_joint: 8
+
+  epochs_diffusion: 50
+  lr_diffusion: 0.0002
+  patience_diffusion: 8
+  diff_val_metric: loss  # loss (fast) | crps (slow but matches the reported metric)
+  val_subsample: 512
+
+  epochs_finetune: 0     # stage 5 is optional, 0 disables it
+  lr_finetune: 0.00002
+  patience_finetune: 5
+
+evaluation:
+  test_stride: 1
+  variogram_mode: cross_var   # cross_var (4 targets per hour) | full (96-dim)
+  variogram_p: 0.5
+  save_attention: true
+  save_samples: false
+
+runtime:
+  gpu: 2
+  seeds: [1, 2, 3]     # exactly three seeds
+  output_dir: results
+  deterministic: false

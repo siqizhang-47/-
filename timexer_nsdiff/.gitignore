@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+data/*.xlsx
+data/cache/
+results/
+results_smoke/
+*.pth
+*.npz
+.ipynb_checkpoints/
