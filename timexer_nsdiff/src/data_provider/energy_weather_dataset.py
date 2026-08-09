@@ -4,7 +4,7 @@ One sample is
 
     history_energy   [L, 4]   past L hours of Electricity/PV/Cooling/Heat (standardised)
     future_calendar  [H, 7]   raw calendar of the next H hours, encoded to 11 dims in the model
-    future_weather   [H, 5]   Temperature, Dew Point, Humidity, GHI(shifted), ClearskyGHI (standardised)
+    future_weather   [H, 4]   Temperature, Dew Point, Humidity, GHI(shifted) (standardised)
     future_energy    [H, 4]   labels (standardised)
     group_info       [H, 3]   hour, IsWeekend, raw Temperature -- used only by the conditional metrics
 
@@ -33,19 +33,19 @@ from .data_quality_fixes import (TARGET_COLS, WEATHER_RAW_COLS, build_timestamp,
                                  fix_weather_zero_fills, leap_corrected_dayofyear)
 from .holiday_features import HolidayFeatureBuilder
 from .scaler import ColumnStandardScaler
-from .solar_clearsky import clearsky_ghi
 
-WEATHER_COLS = WEATHER_RAW_COLS + ["ClearskyGHI"]
+WEATHER_COLS = list(WEATHER_RAW_COLS)
 CALENDAR_RAW_COLS = ["Year", "Month", "DayOfYear", "Hour", "Weekday", "IsWeekend", "IsHoliday"]
 
-# Fixed exogenous token order (design document, section 22) -- 16 tokens.
+# Fixed exogenous token order (design document, section 22) -- 15 tokens:
+# 11 calendar channels + 4 measured weather variables.
 EXO_TOKEN_NAMES = [
     "YearTrend", "MonthSin", "MonthCos", "DoYSin", "DoYCos", "HourSin", "HourCos",
     "WeekdaySin", "WeekdayCos", "IsWeekend", "IsHoliday",
-    "Temperature", "DewPoint", "Humidity", "GHI", "ClearskyGHI",
+    "Temperature", "DewPoint", "Humidity", "GHI",
 ]
-# 0 = calendar (deterministic), 1 = weather (needs a forecast), 2 = solar geometry (deterministic)
-EXO_TOKEN_TYPES = [0] * 11 + [1, 1, 1, 1] + [2]
+# 0 = calendar (deterministic), 1 = weather (needs a forecast)
+EXO_TOKEN_TYPES = [0] * 11 + [1, 1, 1, 1]
 
 
 @dataclass
@@ -75,7 +75,6 @@ def load_heew_table(xlsx_path: str, sheet: str = "Aligned_Data", verbose: bool =
     df["DayOfYear"] = leap_corrected_dayofyear(df["timestamp"])
     df["IsWeekend"] = hb.is_weekend(df["Weekday"].to_numpy())
     df["IsHoliday"] = hb.is_holiday(df["timestamp"])
-    df["ClearskyGHI"] = clearsky_ghi(df["timestamp"], verbose=verbose)
     return df
 
 

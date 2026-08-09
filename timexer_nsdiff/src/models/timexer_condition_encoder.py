@@ -9,8 +9,8 @@ history_energy [B, 168, 4]
     -> target_tokens G' [B, 4, d]
 
 future_calendar_raw [B, 24, 7] -> CyclicCalendarEncoder -> [B, 24, 11]
-future_weather      [B, 24, 5]
-    -> concat -> C_exo [B, 24, 16] -> variate tokenisation -> Z_exo [B, 16, d]
+future_weather      [B, 24, 4]
+    -> concat -> C_exo [B, 24, 15] -> variate tokenisation -> Z_exo [B, 15, d]
 
 HorizonConditionAdapter then re-aligns the target-level condition to each of the
 24 future hours and emits ``cond_horizon`` [B, 24, 4, d] and ``cond_denoiser``
@@ -127,7 +127,7 @@ class HorizonConditionAdapter(nn.Module):
 
 class TimeXerExogenousConditionEncoder(nn.Module):
     def __init__(self, window: int = 168, horizon: int = 24, n_targets: int = 4,
-                 n_exo: int = 16, patch_len: int = 24, d_model: int = 128, n_heads: int = 8,
+                 n_exo: int = 15, patch_len: int = 24, d_model: int = 128, n_heads: int = 8,
                  e_layers: int = 2, d_ff: int = 512, dropout: float = 0.1,
                  activation: str = "gelu", use_exog: bool = True,
                  shared_global_token: bool = False, factor: int = 3,
@@ -189,7 +189,7 @@ class TimeXerExogenousConditionEncoder(nn.Module):
     # ------------------------------------------------------------------ helpers
     def build_exogenous(self, future_calendar_raw: torch.Tensor,
                         future_weather: torch.Tensor) -> torch.Tensor:
-        """[B, H, 7] + [B, H, 5] -> C_exo [B, H, 16] in EXO_TOKEN_NAMES order."""
+        """[B, H, 7] + [B, H, 4] -> C_exo [B, H, 15] in EXO_TOKEN_NAMES order."""
         cal = self.calendar_encoder(future_calendar_raw)
         return torch.cat([cal, future_weather], dim=-1)
 
@@ -206,8 +206,8 @@ class TimeXerExogenousConditionEncoder(nn.Module):
         c_exo = None
         z_exo = None
         if self.use_exog:
-            c_exo = self.build_exogenous(future_calendar_raw, future_weather)   # [B, H, 16]
-            z_exo = self.exo_tokenizer(c_exo)                                   # [B, 16, d]
+            c_exo = self.build_exogenous(future_calendar_raw, future_weather)   # [B, H, 15]
+            z_exo = self.exo_tokenizer(c_exo)                                   # [B, 15, d]
 
         en_embed, n_vars = self.en_embedding(history_energy.permute(0, 2, 1))   # [B*K, P+1, d]
         enc_out, attention = self.encoder(en_embed, z_exo)
@@ -220,7 +220,7 @@ class TimeXerExogenousConditionEncoder(nn.Module):
             "target_tokens": target_tokens,      # [B, 4, 128]
             "cond_horizon": cond_horizon,        # [B, 24, 4, 128]
             "cond_denoiser": cond_denoiser,      # [B, 24, 512]
-            "attention": attention,              # [B, 8, 4, 16]  (None when use_exog=False)
+            "attention": attention,              # [B, 8, 4, 15]  (None when use_exog=False)
             "patch_tokens": enc_out[:, :, :-1, :],
         }
 

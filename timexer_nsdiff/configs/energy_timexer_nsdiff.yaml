@@ -8,7 +8,7 @@ data:
   window: 168          # L, past 7 days
   horizon: 24          # H, next 24 hours
   n_targets: 4         # Electricity, PV, Cooling, Heat
-  n_exo: 16            # 11 calendar channels + 4 weather + ClearskyGHI
+  n_exo: 15            # 11 calendar channels + 4 weather variables
   train_years: [2014, 2020]
   val_years: [2021, 2021]
   test_years: [2022, 2022]

@@ -40,7 +40,8 @@ results/<消融编号>/seed<k>/
     stage{1,2,3,4}_*.pth 各阶段最优检查点
     final_model.pth      最终权重
     metrics_test.json    测试集全部指标
-    attention.json/.png  [4, 16] 交叉注意力热力图
+    attention.json/.png  [4, 15] 交叉注意力热力图
+    figures/             图 1/2/3（png + pdf）与 figures.json
 results/<消融编号>/summary.json     3 个种子的 mean ± std
 results/ablation_table.md / .csv    全部消融对比表
 ```
@@ -114,6 +115,34 @@ python run.py --ablation A7 --gpu 2 --test_stride 4
 python run.py --ablation A7 --gpu -1 --num_workers 0
 ```
 
+### 2.3 画图
+
+`run.py` 跑完会自动在 `results/<消融>/seed<k>/figures/` 下输出三张图（png + pdf）。
+也可以对任何已训练好的 run 单独重绘：
+
+```bash
+# 重绘三张图（有 samples_test.npz 就直接复用，否则加载 final_model.pth 重新采样）
+python plot_results.py --run_dir results/A7/seed1 --gpu 2
+
+# 图 1 画单条生成场景（而非场景均值）并叠加 90% 区间
+python plot_results.py --run_dir results/A7/seed1 --fig_scenario single --fig_band 0.9
+
+# 指定图 1 画哪一天（默认自动挑一个 0 点起始、PV 出力最高的晴天）
+python plot_results.py --run_dir results/A7/seed1 --fig_window 123
+
+# 便宜地重绘：只对测试集每 24 个窗口取 1 个重新采样
+python plot_results.py --run_dir results/A7/seed1 --stride 24
+
+# 图 2/图 3 用场景均值而非全部场景来统计
+python plot_results.py --run_dir results/A7/seed1 --fig_corr_source mean
+
+# 训练时顺便把场景张量存下来，之后重绘就不用再采样
+python run.py --ablation A7 --gpu 2 --save_samples true
+
+# 关闭自动出图
+python run.py --ablation A7 --gpu 2 --make_figures false
+```
+
 > `CUDA_VISIBLE_DEVICES` 与 `--gpu` 不要同时用。若已 `export CUDA_VISIBLE_DEVICES=2`，则改传 `--gpu 0`。
 
 `configs/energy_timexer_nsdiff.yaml` 里的任何字段都能用同名 `--flag` 覆盖。
@@ -124,7 +153,8 @@ python run.py --ablation A7 --gpu -1 --num_workers 0
 
 ```
 timexer_nsdiff/
-├── run.py                        单次实验入口（一个消融 × 若干种子，四阶段 + 评估）
+├── run.py                        单次实验入口（一个消融 × 若干种子，四阶段 + 评估 + 出图）
+├── plot_results.py               对已训练好的 run 单独重绘三张图
 ├── aggregate_ablations.py        汇总消融对比表
 ├── configs/energy_timexer_nsdiff.yaml
 ├── scripts/{run_all,run_main,smoke_test}.sh
@@ -133,7 +163,6 @@ timexer_nsdiff/
     ├── data_provider/
     │   ├── data_quality_fixes.py GHI 时区平移、闰日缺口窗口过滤、0 值插值
     │   ├── holiday_features.py   holidays.US(subdiv='AZ')，预留 UA 校历 IsBreak
-    │   ├── solar_clearsky.py     pvlib 图森 ClearskyGHI（含无 pvlib 的 Haurwitz 兜底）
     │   ├── scaler.py             逐列标准化，目标/天气分开
     │   └── energy_weather_dataset.py
     ├── models/
@@ -147,7 +176,8 @@ timexer_nsdiff/
     ├── metrics/prob_metrics.py   MAE RMSE sMAPE CRPS QICE PICP 区间宽度 ES VS + 分组指标
     └── engine/
         ├── trainer.py            四（五）阶段训练 + 进度条 + 早停
-        └── evaluate.py           场景生成、指标、注意力导出
+        ├── evaluate.py           场景生成、指标、注意力导出
+        └── plots.py              图 1/2/3 绘制
 ```
 
 ---
@@ -185,25 +215,29 @@ timexer_nsdiff/
 |---|---|
 | `history_energy` | `[B, 168, 4]` |
 | `future_calendar` | `[B, 24, 7]` |
-| `future_weather` | `[B, 24, 5]` |
+| `future_weather` | `[B, 24, 4]` |
 | 日历编码 | `[B, 24, 11]` |
-| 全部外生变量 | `[B, 24, 16]` |
-| 外生 variate tokens | `[B, 16, 128]` |
+| 全部外生变量 | `[B, 24, 15]` |
+| 外生 variate tokens | `[B, 15, 128]` |
 | `target_tokens` | `[B, 4, 128]` |
 | `cond_horizon` | `[B, 24, 4, 128]` |
 | `cond_denoiser` | `[B, 24, 512]` |
-| `attention` | `[B, 8, 4, 16]`（A3 为 `[B, 8, 1, 16]`） |
+| `attention` | `[B, 8, 4, 15]`（A3 为 `[B, 8, 1, 15]`） |
 | μ / σ | `[B, 24, 4]` |
 | 场景 | `[B, 100, 24, 4]` |
 
-### 5.3 外生 token 固定顺序（第 22 节）
+### 5.3 外生 token 固定顺序（第 22 节，共 15 个）
 
 ```
-0  YearTrend    4  DoYCos     8  WeekdayCos   12  DewPoint
-1  MonthSin     5  HourSin    9  IsWeekend    13  Humidity
-2  MonthCos     6  HourCos   10  IsHoliday    14  GHI
-3  DoYSin       7  WeekdaySin 11 Temperature  15  ClearskyGHI
+ 0  YearTrend      5  HourSin      10  IsHoliday
+ 1  MonthSin       6  HourCos      11  Temperature
+ 2  MonthCos       7  WeekdaySin   12  DewPoint
+ 3  DoYSin         8  WeekdayCos   13  Humidity
+ 4  DoYCos         9  IsWeekend    14  GHI
 ```
+
+前 11 个为日历通道（确定已知），后 4 个为实测天气（需预报），两类各有独立的
+`e_j^type` embedding。
 
 ### 5.4 五个训练阶段（第 15 节）
 
@@ -250,18 +284,42 @@ timexer_nsdiff/
 
 ---
 
-## 6. 需要留意的几点
+## 6. 三张结果图
 
-1. **外生变量数按 16 实现。** 方案 5.3 节算式写 `M_exo = 11 + 4 = 15`，但第 8、17 节的张量表、第 9 节的注意力形状 `[B,8,4,16]` 都按 16 给出；16 = 11 日历 + 4 天气 + ClearskyGHI 才自洽（第 22 节的 15 项清单漏了 ClearskyGHI）。这里取 16，`--n_exo` 可改。
+| 文件 | 内容 | 对应 |
+|---|---|---|
+| `figures/fig1_real_vs_generated.png` | 真实数据与生成数据的 24 小时曲线对比，四个子图：Electrical Load / Cooling Load / Heating Load / PV Power，纵轴 p.u. | 图 1 |
+| `figures/fig2_correlation_matrix.png` | 生成样本与真实样本的皮尔逊相关矩阵（左生成、右真实，RdBu，−1~1，带数值标注） | 图 2 |
+| `figures/fig3_pdf_comparison.png` | 真实样本与生成样本的概率密度函数（红=真实、灰=生成，高斯 KDE） | 图 3 |
+
+绘图约定：
+
+- **面板顺序与标签按参考图**：Electrical、Cooling、Heating、PV。注意这与代码内部的目标顺序
+  （Electricity、PV、Cooling、Heat）不同，`plots.py` 里显式做了重排。
+- **p.u. 基准**：默认取该变量在测试集真实序列上的最大值，因此曲线落在 [0, 1]；
+  `--fig_pu_base p99` 可改成 99 分位数。基准值会写进 `figures.json`。
+- **图 1 的"生成曲线"**默认是 S 个场景的均值（`--fig_scenario mean`）；
+  `--fig_scenario single` 画随机抽的单条场景，更接近参考图的画法。
+- **图 2 / 图 3 的生成分布**默认汇总全部 S 个场景（`--fig_corr_source samples`），
+  反映模型真实的生成分布；`mean` 则只用场景均值。
+- **KDE 自己实现**（Silverman 带宽，纯 numpy），不引入 scipy 依赖；
+  `figures.json` 里附带真实/生成密度的 L1 距离，可作为一个简单的分布拟合数值。
+- 三张图同时输出 **PNG（160 dpi）和 PDF（矢量）**，PDF 可直接插入论文。
+
+---
+
+## 7. 需要留意的几点
+
+1. **外生变量数为 15**：11 个日历通道 + 4 个实测天气变量（Temperature、Dew Point、Humidity、GHI），与方案 5.3 节的 `M_exo = 11 + 4 = 15` 和第 22 节的 token 清单一致。ClearskyGHI 已移除，因此也不再需要 pvlib 依赖。
 2. **`future_calendar` 的第 3 个通道是 day-of-year，不是 day-of-month。** 方案 5.3 明确要求用 DoY 编码，日期号本身不进模型，所以数据集直接输出闰日校正后的 DoY，7 个通道仍为"5 原始日历 + IsWeekend + IsHoliday"。
 3. **所有结果都是 Oracle Weather。** 模型读取真实未来天气，是性能上界，不能表述为真实运行条件下的预测性能。
 4. **Variogram Score 默认 `cross_var`。** 即在每个预测小时上对 4 个目标算 4×4 变差，再沿 24 小时平均，用来衡量能源变量之间的联合结构。`--variogram_mode full` 会改用完整 96 维（约 9216 对/窗口，慢很多）。
 5. **`IsBreak`（UA 校历）按方案要求首版未启用**，接口已留在 `HolidayFeatureBuilder.is_break`，传入 `use_break=True` 与 `break_ranges` 即可开启。
-6. **`holidays` / `pvlib` 缺失时有兜底实现**（内置美国联邦节假日表、Haurwitz 晴空模型），但会打印警告；论文实验请安装这两个包，以保证与方案口径一致。
+6. **`holidays` 缺失时有兜底实现**（内置美国联邦节假日表），但会打印警告；论文实验请安装该包，以保证与方案口径一致。
 
 ---
 
-## 7. 参考文献
+## 8. 参考文献
 
 1. Wang et al. *TimeXer: Empowering Transformers for Time Series Forecasting with Exogenous Variables.* NeurIPS 2024. https://arxiv.org/abs/2402.19072
 2. Ye, Xu & Gui. *Non-stationary Diffusion for Probabilistic Time Series Forecasting.* ICML 2025. https://arxiv.org/abs/2505.04278

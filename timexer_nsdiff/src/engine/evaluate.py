@@ -16,6 +16,7 @@ from torch.utils.data import Subset
 from tqdm.auto import tqdm
 
 from ..metrics.prob_metrics import TARGET_NAMES, compute_all_metrics
+from .plots import make_all_figures, plot_sample_trajectories
 from .trainer import make_loader, to_device
 
 
@@ -46,7 +47,7 @@ def inverse_transform(pred, true, target_scaler):
 
 @torch.no_grad()
 def export_attention(model, dataset, cfg, device, out_path, max_batches: int = 20):
-    """Average the cross-attention map over batch and heads -> [4, 16] heat map."""
+    """Average the cross-attention map over batch and heads -> [4, 15] heat map."""
     if not model.cfg.use_exog:
         return None
     loader = make_loader(dataset, cfg.eval_batch_size, False, cfg.num_workers)
@@ -118,7 +119,14 @@ def evaluate(model, dataset, cfg, device, target_scaler, out_dir, tag="test"):
     if cfg.save_samples:
         np.savez_compressed(os.path.join(out_dir, f"samples_{tag}.npz"),
                             pred=pred.numpy().astype(np.float32),
-                            true=true.numpy().astype(np.float32))
+                            true=true.numpy().astype(np.float32),
+                            group_info=groups.numpy().astype(np.float32))
+    if cfg.make_figures:
+        make_all_figures(pred, true, out_dir, group_info=groups,
+                         base_mode=cfg.fig_pu_base, scenario=cfg.fig_scenario,
+                         band=(cfg.fig_band if cfg.fig_band > 0 else None),
+                         corr_source=cfg.fig_corr_source, seed=cfg.seed,
+                         window=(None if cfg.fig_window < 0 else cfg.fig_window))
     return metrics
 
 

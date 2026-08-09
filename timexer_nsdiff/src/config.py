@@ -19,7 +19,7 @@ class ExpConfig:
     window: int = 168                 # L
     horizon: int = 24                 # H
     n_targets: int = 4
-    n_exo: int = 16                   # 11 calendar + 5 weather (incl. ClearskyGHI)
+    n_exo: int = 15                   # 11 calendar channels + 4 weather variables
     train_years: List[int] = field(default_factory=lambda: [2014, 2020])
     val_years: List[int] = field(default_factory=lambda: [2021, 2021])
     test_years: List[int] = field(default_factory=lambda: [2022, 2022])
@@ -95,6 +95,14 @@ class ExpConfig:
     variogram_p: float = 0.5
     save_attention: bool = True
     save_samples: bool = False
+
+    # ------------------------------------------------------------------ figures
+    make_figures: bool = True
+    fig_scenario: str = "mean"        # mean | single   (figure 1 generated curve)
+    fig_band: float = 0.0             # >0 shades that central interval in figure 1
+    fig_pu_base: str = "max"          # max | p99       (per-unit base)
+    fig_corr_source: str = "samples"  # samples | mean  (figures 2 and 3)
+    fig_window: int = -1              # -1 = auto-pick a representative day
 
     # ------------------------------------------------------------------ runtime
     gpu: int = 2

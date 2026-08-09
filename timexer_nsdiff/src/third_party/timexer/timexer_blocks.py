@@ -7,7 +7,7 @@ the ablation table (section 20); every one of them is marked with ``# [MOD]``:
 1. ``EnEmbedding`` can share one global endogenous token across all variables
    (ablation A3) instead of one token per variable (ablation A4).
 2. ``EncoderLayer`` returns the variate-wise cross-attention map so that the
-   ``[B, n_heads, 4, 16]`` tensor of section 9 can be inspected.
+   ``[B, n_heads, 4, 15]`` tensor of section 9 can be inspected.
 3. ``EncoderLayer`` accepts ``cross=None`` and then degenerates to a pure
    self-attention block, which is what ablation A0 (no exogenous variables)
    needs.

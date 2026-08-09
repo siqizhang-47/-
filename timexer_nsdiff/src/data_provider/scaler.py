@@ -34,9 +34,15 @@ class ColumnStandardScaler:
     def fit_transform(self, x: np.ndarray) -> np.ndarray:
         return self.fit(x).transform(x)
 
-    def inverse_transform(self, x: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def _is_torch(x) -> bool:
+        # numpy >= 2.0 arrays also expose `.device`, so test the type explicitly
+        torch = __import__("sys").modules.get("torch")
+        return torch is not None and torch.is_tensor(x)
+
+    def inverse_transform(self, x):
         """Works for any trailing-dim-C array (numpy or torch)."""
-        if hasattr(x, "device"):  # torch tensor
+        if self._is_torch(x):
             import torch
             mean = torch.as_tensor(self.mean_, device=x.device, dtype=x.dtype)
             std = torch.as_tensor(self.std_, device=x.device, dtype=x.dtype)
@@ -45,7 +51,7 @@ class ColumnStandardScaler:
 
     def inverse_scale_only(self, x):
         """Rescale a *spread* (std / interval width): no mean shift."""
-        if hasattr(x, "device"):
+        if self._is_torch(x):
             import torch
             std = torch.as_tensor(self.std_, device=x.device, dtype=x.dtype)
             return x * std
