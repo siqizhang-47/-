@@ -1,0 +1,9 @@
+# Global configuration: paths / device / the single random seed.
+seed: 2026                # the ONE seed used across the entire pipeline
+device: cuda:2            # GPU index 2 as required
+
+data_raw: data/raw/aligned_energy_weather_summary_with_GHI_and_correlation.xlsx
+data_csv: data/processed/energy.csv
+scenario_dir: data/scenarios
+results_dir: results
+checkpoint_dir: checkpoints

@@ -1,0 +1,5 @@
+# Daily frozen deployment + scenario caching.
+M: 100                    # scenarios per deployment day
+warmup_days: 30           # extra 2019 tail days cached for adapter cold start
+deploy_start: "2020-01-01"
+deploy_end: "2022-12-31"

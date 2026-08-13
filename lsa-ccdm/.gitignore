@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+data/raw/*.xlsx
+data/processed/*.csv
+data/scenarios/
+checkpoints/*.pt
+results/**/*.parquet
+.pytest_cache/
+results/drift/
+results/*/daily_metrics.parquet
+results/*/yearly_metrics.csv
+results/*/monthly_metrics.csv

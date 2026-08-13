@@ -1,0 +1,12 @@
+# Mini config for smoke tests: January 2020 only, M=20.
+M: 20
+warmup_days: 7
+deploy_start: "2020-01-01"
+deploy_end: "2020-01-31"
+n_epochs: 2
+eval_every: 1
+patience: 2
+min_epochs: 1
+crps_n_windows: 8
+crps_n_samples: 8
+train_batch_size: 32

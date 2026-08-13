@@ -1,0 +1,52 @@
+# CCDM backbone training configuration (energy dataset, MW task).
+data_name: energy
+task: MW                  # multivariate targets with weather covariates
+cont_len: 48              # 48h look-back
+pred_len: 24              # H = 24
+num_feat: 8               # history channels: 4 targets + 4 weather
+num_target: 4             # PV / Electricity / Cooling / Heat
+freq: h
+
+# network (defaults inherited from CCDM run scripts)
+n_emb: 2
+cont_hidden_dim: 128
+pred_hidden_dim: 128
+step_hidden_dim: 128
+time_hidden_dim: 128
+n_depth: 2
+n_heads: 8
+attn_dropout: 0.1
+mlp_ratio: 1
+non_attn: false
+
+# conditioning
+weather_cond_mode: token  # token | pooled  (ablation switch)
+use_time_cond: true       # restore the timestamp condition
+use_window_norm: true     # instance/window normalization (Exp5 trains an off variant)
+
+# diffusion
+n_steps: 50
+beta_start: 0.0001
+beta_end: 0.5
+beta_schedule: quad
+parameterization: noise
+step_dist: uniform
+
+# contrastive diffusion (kept from CCDM)
+use_contrast: contrast    # contrast | non-contrast
+contrast_weight: 0.001
+n_negatives: 16
+temperature: 0.1
+
+# optimization
+train_batch_size: 64
+n_epochs: 100
+init_lr: 1.0e-3
+num_workers: 4
+
+# validation / model selection / EARLY STOPPING
+eval_every: 5             # run a validation-CRPS evaluation every N epochs
+patience: 4               # early stop after this many evaluations w/o improvement
+min_epochs: 20            # never stop before this epoch
+crps_n_windows: 100       # validation windows (day starts) per evaluation
+crps_n_samples: 32        # scenarios per window for validation CRPS
