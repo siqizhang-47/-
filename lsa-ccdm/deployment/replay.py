@@ -75,11 +75,13 @@ class MetricsLogger:
 
 class ReplayRunner:
     def __init__(self, cfg, method, adapter, loss_fn, ctx_fn, cache_dir,
-                 tune_mode=False):
+                 tune_mode=False, adapted_dir=None):
         """
         adapter: nn.Module or None (frozen)
         loss_fn(adapter, scen, y, ctx) -> scalar loss     (None for frozen)
         ctx_fn(context: ResidualContext) -> tensor passed to the adapter
+        adapted_dir: if set, the ADAPTED scenarios of every deployment day are
+            saved there as npz (needed by scripts/plot_model_figures.py)
         """
         self.cfg = cfg
         self.method = method
@@ -88,6 +90,9 @@ class ReplayRunner:
         self.ctx_fn = ctx_fn
         self.cache = ScenarioCache(cache_dir)
         self.tune_mode = tune_mode
+        self.adapted_dir = Path(adapted_dir) if adapted_dir else None
+        if self.adapted_dir:
+            self.adapted_dir.mkdir(parents=True, exist_ok=True)
 
         self.K = cfg.get("K", 7)
         self.adapt_steps = cfg.get("adapt_steps", 5)
@@ -163,6 +168,10 @@ class ReplayRunner:
                                       for c, name in enumerate(M.CARRIERS)})
                 adapted = self._denorm_np(adapted_n)
             self.logger.log(date, scen, adapted, y_true, extra=extra)
+            if self.adapted_dir:
+                np.savez_compressed(
+                    self.adapted_dir / f"{pd.Timestamp(date).date()}.npz",
+                    scenarios=adapted, y_true=y_true)
 
             # 3. day-t truth arrives (usable from t+1 onward)
             self.context.push(y_n, scen_n.mean(0), scen_n.std(0))

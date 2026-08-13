@@ -100,6 +100,9 @@ def main():
     parser.add_argument("--out", default=None, help="results dir (default results/<name>)")
     parser.add_argument("--name", default=None, help="experiment name for results dir")
     parser.add_argument("--eval-dependence", action="store_true", help="Exp4 CME metrics")
+    parser.add_argument("--save-adapted", action="store_true",
+                        help="save adapted scenarios to <out>/adapted/*.npz "
+                             "(needed for scripts/plot_model_figures.py)")
     parser.add_argument("--tune", action="store_true",
                         help="lambda-sweep mode: refuses caches after 2020-06-30")
     parser.add_argument("--override", nargs="*", default=[])
@@ -120,8 +123,9 @@ def main():
     out_dir = args.out or str(root / cfg.results_dir / name)
 
     adapter, loss_fn, ctx_fn = build_method(args.method, cfg)
+    adapted_dir = str(Path(out_dir) / "adapted") if args.save_adapted else None
     runner = ReplayRunner(cfg, args.method, adapter, loss_fn, ctx_fn,
-                          cache_dir, tune_mode=args.tune)
+                          cache_dir, tune_mode=args.tune, adapted_dir=adapted_dir)
 
     all_dates = ScenarioCache(cache_dir).dates()
     deploy_start = pd.Timestamp(cfg.deploy_start)

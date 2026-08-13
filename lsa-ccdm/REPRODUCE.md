@@ -79,6 +79,25 @@ bash scripts/abl_HDI.sh                 # 消融 D（尺度共享）+ H（Δ结�
 python experiments/make_summary.py      # -> results/summary_table.csv
 ```
 
+## 10. 模型图（真实 vs 生成：逐日曲线 / 相关矩阵热力图 / PDF）
+
+先带 `--save-adapted` 重放需要画图的方法（保存适配后场景，frozen 不需要）：
+
+```bash
+python experiments/run_adapter.py --method proposed --save-adapted
+python experiments/run_adapter.py --method cosa     --save-adapted
+```
+
+再画图（每个模型 3 张 + 一张多模型对比，默认输出 `results/figures/`）：
+
+```bash
+python scripts/plot_model_figures.py --models frozen proposed cosa \
+    --day 2021-06-15 --start 2021-06-01 --end 2021-06-30
+```
+
+`--day` 决定逐日曲线图的日期，`--start/--end` 决定相关矩阵与 PDF 的统计时段；
+`--no-band` 可隐藏 90% 区间带；`--models` 也可以直接给 results 目录路径。
+
 各方法结果：`results/<name>/daily_metrics.parquet`（逐日全指标 + s_c/Δ_c 轨迹）、
 `yearly_metrics.csv`、`monthly_metrics.csv`；成本报告：`results/{retrain,finetune}_cost.json`
 与各缓存目录 `manifest.json`（逐日采样耗时）。
