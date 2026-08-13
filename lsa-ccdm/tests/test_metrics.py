@@ -7,15 +7,20 @@ from evaluation.dm_test import dm_test
 
 
 def test_crps_matches_properscoring():
+    """properscoring is the biased 1/(2M^2) estimator; ours is fair
+    1/(2M(M-1)) -- they differ exactly by t2/(2(M-1))."""
     ps = pytest.importorskip("properscoring")
-    scen = np.random.randn(80, 24, 4)
+    n = 80
+    scen = np.random.randn(n, 24, 4)
     y = np.random.randn(24, 4)
     ours = M.ensemble_crps(scen, y)
+    t2 = np.abs(scen[None] - scen[:, None]).mean(axis=(0, 1))
     ref = np.empty((24, 4))
     for h in range(24):
         for c in range(4):
             ref[h, c] = ps.crps_ensemble(y[h, c], scen[:, h, c])
-    assert np.abs(ours - ref).max() < 1e-6
+    ref_fair = ref - t2 / (2 * (n - 1))
+    assert np.abs(ours - ref_fair).max() < 1e-6
 
 
 def test_picp_on_standard_normal():

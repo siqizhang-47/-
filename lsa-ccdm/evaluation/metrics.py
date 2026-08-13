@@ -24,10 +24,15 @@ def point_metrics(scen, y):
 
 # ---------------- marginal probabilistic metrics ----------------
 def ensemble_crps(scen, y):
-    """Energy-form sample CRPS per (h, c): (H, C)."""
+    """Fair (unbiased) sample CRPS per (h, c): (H, C).
+
+    Pair term uses 1/(2M(M-1)) instead of the naive 1/(2M^2).
+    """
+    M = scen.shape[0]
     t1 = np.abs(scen - y[None]).mean(axis=0)
     t2 = np.abs(scen[None] - scen[:, None]).mean(axis=(0, 1))
-    return t1 - 0.5 * t2
+    fair = M / (M - 1) if M > 1 else 1.0
+    return t1 - 0.5 * fair * t2
 
 
 def crps_sum(scen, y):

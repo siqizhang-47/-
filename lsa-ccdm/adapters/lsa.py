@@ -29,12 +29,13 @@ def fourier_basis(H: int, n_basis: int) -> torch.Tensor:
 
 class LSAdapter(nn.Module):
     def __init__(self, H=24, C=4, d_ctx=120, d_hidden=64,
-                 delta_mode="lowrank",    # 'lowrank' | 'fullrank' | 'gated_only' (ablation H)
+                 delta_mode="fullrank",   # 'lowrank' | 'fullrank' | 'gated_only' (ablation H)
                  n_basis=4,               # number of Fourier basis functions (lowrank)
                  scale_mode="carrier",    # 'carrier' | 'shared'                (ablation D)
                  s_min=0.5, s_max=2.0,
                  s_frozen=False, delta_frozen=False,
-                 independent_scenarios=False):
+                 independent_scenarios=False,
+                 use_pred_context=True):
         super().__init__()
         assert delta_mode in ("lowrank", "fullrank", "gated_only")
         assert scale_mode in ("carrier", "shared")
@@ -45,9 +46,15 @@ class LSAdapter(nn.Module):
         self.s_frozen = s_frozen
         self.delta_frozen = delta_frozen
         self.independent_scenarios = independent_scenarios
+        # today's predicted trajectory as adapter input (closes the structural
+        # gap vs TAFAS/COSA whose corrections are functions of the prediction):
+        # shape-normalized scenario mean (H*C) + raw per-carrier ensemble std (C).
+        # No leakage: uses only the day's own frozen scenarios, never its truth.
+        self.use_pred_context = use_pred_context
+        self.d_pred = (H * C + C) if use_pred_context else 0
 
         self.mlp = nn.Sequential(
-            nn.Linear(d_ctx, d_hidden), nn.SiLU(),
+            nn.Linear(d_ctx + self.d_pred, d_hidden), nn.SiLU(),
             nn.Linear(d_hidden, d_hidden), nn.SiLU(),
         )
 
@@ -78,8 +85,19 @@ class LSAdapter(nn.Module):
             self.delta_head.bias.requires_grad_(False)
             self.g.requires_grad_(False)
 
-    def compute_params(self, ctx):
-        """ctx (d_ctx,) -> Delta (H, C), s (C,)"""
+    def _pred_features(self, scenarios):
+        """(M, H, C) frozen scenarios -> (H*C + C,) prediction-trajectory features."""
+        mu = scenarios.mean(0)                                     # (H, C)
+        mu_shape = torch.nn.functional.layer_norm(
+            mu.reshape(-1), (self.H * self.C,))                    # trajectory shape
+        std_c = scenarios.std(0).mean(0)                           # dispersion level
+        return torch.cat([mu_shape, std_c])
+
+    def compute_params(self, ctx, scenarios=None):
+        """ctx (d_ctx,), scenarios (M, H, C) -> Delta (H, C), s (C,)"""
+        if self.use_pred_context:
+            assert scenarios is not None, "use_pred_context needs the day's scenarios"
+            ctx = torch.cat([ctx, self._pred_features(scenarios)])
         h = self.mlp(ctx)
         if self.delta_mode == "lowrank":
             out = self.delta_head(h).view(self.C, 1 + self.n_basis)
@@ -108,20 +126,23 @@ class LSAdapter(nn.Module):
         return adapted
 
     def forward_with_params(self, scenarios, ctx):
-        delta, s = self.compute_params(ctx)
+        delta, s = self.compute_params(ctx, scenarios)
         mu = scenarios.mean(0, keepdim=True)
         adapted = s.view(1, 1, self.C) * (scenarios - mu) + mu + delta[None]
         return adapted, delta, s
 
 
 def ensemble_crps(scen, y):
-    """Sample-based energy-form CRPS, differentiable w.r.t. scenarios.
+    """Fair (unbiased) sample CRPS, differentiable w.r.t. scenarios.
 
+    Pair term uses 1/(2M(M-1)) instead of the naive 1/(2M^2).
     scen (M, H, C), y (H, C) -> per-(h, c) CRPS (H, C).
     """
+    M = scen.shape[0]
     t1 = (scen - y.unsqueeze(0)).abs().mean(0)
     t2 = (scen.unsqueeze(0) - scen.unsqueeze(1)).abs().mean((0, 1))
-    return t1 - 0.5 * t2
+    fair = M / (M - 1) if M > 1 else 1.0
+    return t1 - 0.5 * fair * t2
 
 
 def gaussian_nll(scen, y, eps=1e-6):
@@ -153,5 +174,8 @@ def lsa_loss(adapter, scenarios, y_true, ctx, w_c, lam_s=0.1, lam_delta=1e-3,
         data_term = ((w_c[None, None, :] * (adapted - y_true.unsqueeze(0)) ** 2)).mean()
     else:
         raise NotImplementedError(objective)
-    reg = lam_s * ((s - 1.0) ** 2).sum() + lam_delta * (delta ** 2).mean()
+    # both regularizers use MEAN reduction, matching the data term's mean over
+    # the (h, c) cells -- a sum over carriers would inflate the s-penalty 4x
+    # relative to the CRPS dispersion incentive and pin s at 1
+    reg = lam_s * ((s - 1.0) ** 2).mean() + lam_delta * (delta ** 2).mean()
     return data_term + reg

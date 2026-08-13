@@ -43,8 +43,9 @@ python experiments/run_drift_diagnosis.py           # -> results/drift/*.csv
 ## 5. 超参粗扫（可选，只允许用 2020 上半年）
 
 ```bash
-python experiments/run_adapter.py --method proposed --tune --override lam_s=0.01  --name tune_lams_x0.1
-python experiments/run_adapter.py --method proposed --tune --override lam_s=1.0   --name tune_lams_x10
+# 默认 lam_s=0.01, lam_delta=1e-3（正则均为 mean 归约）
+python experiments/run_adapter.py --method proposed --tune --override lam_s=0.001 --name tune_lams_x0.1
+python experiments/run_adapter.py --method proposed --tune --override lam_s=0.1   --name tune_lams_x10
 python experiments/run_adapter.py --method proposed --tune --override lam_delta=1e-4 --name tune_lamd_x0.1
 python experiments/run_adapter.py --method proposed --tune --override lam_delta=1e-2 --name tune_lamd_x10
 ```

@@ -32,10 +32,12 @@ def cal_mse_loss(a, b):
 
 
 def ensemble_crps_np(scen, y):
-    """scen (M, H, C), y (H, C) -> mean scalar CRPS (numpy)."""
+    """Fair sample CRPS: scen (M, H, C), y (H, C) -> mean scalar (numpy)."""
+    M = scen.shape[0]
     t1 = np.abs(scen - y[None]).mean(axis=0)
     t2 = np.abs(scen[None] - scen[:, None]).mean(axis=(0, 1))
-    return float((t1 - 0.5 * t2).mean())
+    fair = M / (M - 1) if M > 1 else 1.0
+    return float((t1 - 0.5 * fair * t2).mean())
 
 
 class DiffMTS:

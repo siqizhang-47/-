@@ -71,6 +71,16 @@ class ResidualContext:
         ratio_c = std_c / (pred_std.mean(dim=(0, 1)) + 1e-8)      # (C,)
         mae_c = e.abs().mean(dim=(0, 1))                          # (C,)
 
-        feat = torch.cat([mean_c, median_c, slope_c, horizon_bias, std_c, ratio_c, mae_c])
+        # grouped normalization: a single layer_norm over all 120 dims would let
+        # the 96 horizon-bias features dilute the 12 dispersion features and
+        # destroy their absolute level (the direct supervision signal for s).
+        # - horizon bias: layer_norm within the group (its SHAPE is the signal;
+        #   the absolute level is already carried by mean_c/median_c)
+        # - scalar stats: kept in raw train-scaler units (already O(1));
+        #   dispersion ratio passed as log(r_c) so 0 == calibrated
+        horizon_bias = F.layer_norm(horizon_bias, horizon_bias.shape)
+        log_ratio_c = torch.log(ratio_c + 1e-8)
+        feat = torch.cat([mean_c, median_c, slope_c, horizon_bias,
+                          std_c, log_ratio_c, mae_c])
         assert feat.shape[0] == self.d_ctx
-        return F.layer_norm(feat, feat.shape)
+        return torch.clamp(feat, -10.0, 10.0)

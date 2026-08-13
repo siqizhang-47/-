@@ -161,7 +161,7 @@ class ReplayRunner:
                 with torch.no_grad():
                     adapted_n = self.adapter(scen_n, ctx)
                     if hasattr(self.adapter, "compute_params"):
-                        delta, s = self.adapter.compute_params(ctx)
+                        delta, s = self.adapter.compute_params(ctx, scen_n)
                         extra.update({f"s_{name}": float(s[c]) for c, name in
                                       enumerate(M.CARRIERS)})
                         extra.update({f"delta_{name}": float(delta[:, c].mean())

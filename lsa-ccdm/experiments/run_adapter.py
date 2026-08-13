@@ -31,12 +31,15 @@ from utils.seed import set_seed
 
 METHODS = ["frozen", "tafas", "cosa", "shift_only", "scale_only", "proposed", "independent"]
 
+# lam_s=0.01 with MEAN-reduced regularizer: under the old sum-reduced 0.1 the
+# penalty numerically cancelled the CRPS dispersion incentive and pinned s at 1.
+# fullrank + K=30 confirmed significantly better by DM tests on 2020H1 tuning.
 ADAPTER_DEFAULTS = {
-    "K": 7, "adapt_steps": 5, "adapt_every": 1, "adapter_lr": 1.0e-3,
-    "lam_s": 0.1, "lam_delta": 1.0e-3, "grad_clip": 0.1,
-    "delta_mode": "lowrank", "n_basis": 4, "scale_mode": "carrier",
+    "K": 30, "adapt_steps": 5, "adapt_every": 1, "adapter_lr": 1.0e-3,
+    "lam_s": 0.01, "lam_delta": 1.0e-3, "grad_clip": 0.1,
+    "delta_mode": "fullrank", "n_basis": 4, "scale_mode": "carrier",
     "s_min": 0.5, "s_max": 2.0, "d_hidden": 64, "loss": "crps",
-    "cosa_buffer_context_size": 5,
+    "use_pred_context": True, "cosa_buffer_context_size": 5,
 }
 
 
@@ -68,7 +71,8 @@ def build_method(method, cfg):
     kwargs = dict(H=cfg.pred_len, C=cfg.num_target, d_ctx=d_ctx,
                   d_hidden=cfg.d_hidden, delta_mode=cfg.delta_mode,
                   n_basis=cfg.n_basis, scale_mode=cfg.scale_mode,
-                  s_min=cfg.s_min, s_max=cfg.s_max)
+                  s_min=cfg.s_min, s_max=cfg.s_max,
+                  use_pred_context=cfg.use_pred_context)
     if method == "shift_only":
         kwargs["s_frozen"] = True
     elif method == "scale_only":
