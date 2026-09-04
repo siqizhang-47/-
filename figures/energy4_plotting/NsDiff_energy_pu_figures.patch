@@ -1,0 +1,170 @@
+--- orig/NsDiff-TimeXer-Exog/src/experiments/NsDiff_energy.py	2026-08-31 11:48:57.000000000 +0000
++++ repo/NsDiff-TimeXer-Exog/src/experiments/NsDiff_energy.py	2026-09-04 12:39:32.985037677 +0000
+@@ -26,7 +26,12 @@
+ from torch_timeseries.utils.reproduce import reproducible
+ 
+ 
+-FEATURE_NAMES = ["Electricity", "PV", "Cooling", "Heat"]
++from src.experiments.energy_figures import (
++    FEATURE_NAMES,
++    compute_pu_base,
++    render_all,
++    save_figure_arrays,
++)
+ 
+ 
+ def _empirical_crps_sum(preds: torch.Tensor, truths: torch.Tensor):
+@@ -323,136 +328,27 @@
+             for name in FEATURE_NAMES:
+                 w.writerow([name, per_var[name]["mae_original_unit"], per_var[name]["mse_original_unit"], "original"])
+ 
+-        if example is not None:
+-            self._plot_prediction_intervals(example, os.path.join(outdir, "fig1_prediction_intervals.png"))
+-        if truth_pool is not None and sample_pool is not None:
+-            self._plot_pdfs(truth_pool, sample_pool, os.path.join(outdir, "fig2_marginal_pdfs.png"))
+-            self._plot_correlations(truth_pool, sample_pool, os.path.join(outdir, "fig3_pearson_correlation.png"))
++        # Per-unit base: peak of each variable in the training split (fixed,
++        # data-driven, independent of the model outputs).
++        pu_base = self._pu_base()
++        with open(os.path.join(outdir, "pu_base.json"), "w", encoding="utf-8") as f:
++            json.dump({FEATURE_NAMES[i]: float(pu_base[i]) for i in range(len(FEATURE_NAMES))}, f, indent=2)
++        # Raw arrays behind the figures, so they can be re-plotted without re-running the model.
++        save_figure_arrays(os.path.join(outdir, "figure_arrays.npz"), example, truth_pool, sample_pool, pu_base)
++        render_all(outdir, example, truth_pool, sample_pool, pu_base, FEATURE_NAMES,
++                   dpi=self.figure_dpi, seed=self.plot_seed)
+ 
+         print(f"\nSaved Energy4 analysis to: {outdir}")
+         return outdir
+ 
+-    def _plot_prediction_intervals(self, example, path):
+-        """Plot only the 24-hour forecast region (no history panel)."""
+-        import matplotlib
+-        matplotlib.use("Agg")
+-        import matplotlib.pyplot as plt
+-
+-        truth = example["truth"]
+-        samples = example["samples"]  # (O,N,S), already calibrated if enabled
+-        mean = samples.mean(axis=-1)
+-        q025, q10, q25, q75, q90, q975 = np.quantile(
+-            samples, [0.025, 0.10, 0.25, 0.75, 0.90, 0.975], axis=-1
+-        )
+-        fx = np.arange(1, truth.shape[0] + 1)
+-
+-        fig, axes = plt.subplots(2, 2, figsize=(13.5, 7.6), sharex=True)
+-        for j, ax in enumerate(axes.flat):
+-            ax.fill_between(fx, q025[:, j], q975[:, j], color="#A6CEE3", alpha=0.28, label="95% PI")
+-            ax.fill_between(fx, q10[:, j], q90[:, j], color="#4EA3D8", alpha=0.30, label="80% PI")
+-            ax.fill_between(fx, q25[:, j], q75[:, j], color="#1F78B4", alpha=0.24, label="50% PI")
+-            ax.plot(fx, mean[:, j], color="#1F4E79", lw=2.0, label="Predictive mean")
+-            ax.plot(fx, truth[:, j], color="#D62728", lw=2.0, label="Ground truth")
+-            ax.set_title(FEATURE_NAMES[j])
+-            ax.set_xlabel("Forecast horizon (hour)")
+-            ax.set_xlim(1, truth.shape[0])
+-            ax.grid(alpha=0.18)
+-        handles, labels = axes.flat[0].get_legend_handles_labels()
+-        fig.legend(handles, labels, loc="lower center", ncol=5, frameon=False)
+-        policy = example.get("selection_policy", "unspecified")
+-        fig.suptitle(f"24-hour probabilistic forecast (display window: {policy})", fontsize=14)
+-        fig.tight_layout(rect=[0, 0.06, 1, 0.95])
+-        fig.savefig(path, dpi=self.figure_dpi, bbox_inches="tight")
+-        plt.close(fig)
+-
+-    def _plot_pdfs(self, truth_pool, sample_pool, path):
+-        """Marginal PDFs with a shared absolute KDE bandwidth per variable.
+-
+-        Using the same smoothing bandwidth for real/generated samples prevents
+-        different Scott factors from creating artificial visual discrepancies.
+-        """
+-        import matplotlib
+-        matplotlib.use("Agg")
+-        import matplotlib.pyplot as plt
+-        from scipy.stats import gaussian_kde
+-
+-        rng = np.random.default_rng(self.plot_seed)
+-        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+-        for j, ax in enumerate(axes.flat):
+-            real = truth_pool[:, :, j].reshape(-1)
+-            gen = sample_pool[:, :, j, :].reshape(-1)
+-            if real.size > 50000:
+-                real = rng.choice(real, 50000, replace=False)
+-            if gen.size > 50000:
+-                gen = rng.choice(gen, 50000, replace=False)
+-
+-            # Shared absolute KDE bandwidth derived from pooled data.
+-            pooled = np.concatenate([real, gen])
+-            pooled_std = float(np.std(pooled, ddof=1)) + 1e-12
+-            pooled_n = max(int(pooled.size), 2)
+-            scott = pooled_n ** (-1.0 / 5.0)
+-            abs_bw = max(scott * pooled_std, 1e-8)
+-            rstd = float(np.std(real, ddof=1)) + 1e-12
+-            gstd = float(np.std(gen, ddof=1)) + 1e-12
+-            real_kde = gaussian_kde(real, bw_method=abs_bw / rstd)
+-            gen_kde = gaussian_kde(gen, bw_method=abs_bw / gstd)
+-
+-            # Robust x-range: include essentially all mass but avoid a single
+-            # extreme Monte-Carlo draw dominating the axis.
+-            lo = float(min(np.quantile(real, 0.001), np.quantile(gen, 0.001)))
+-            hi = float(max(np.quantile(real, 0.999), np.quantile(gen, 0.999)))
+-            pad = 0.04 * (hi - lo + 1e-12)
+-            xs = np.linspace(lo - pad, hi + pad, 450)
+-            yr = real_kde(xs)
+-            yg = gen_kde(xs)
+-            ax.fill_between(xs, yr, alpha=0.42, color="#FF6B6B", label="Real sample")
+-            ax.plot(xs, yr, color="#FF4D4D", lw=1.6)
+-            ax.fill_between(xs, yg, alpha=0.40, color="#9E9E9E", label="Generated sample")
+-            ax.plot(xs, yg, color="#666666", lw=1.6)
+-            ax.set_title(FEATURE_NAMES[j])
+-            ax.set_xlabel(FEATURE_NAMES[j])
+-            ax.set_ylabel("PDF")
+-            ax.legend()
+-            ax.grid(alpha=0.15)
+-        fig.suptitle("Marginal PDFs of real and calibrated NsDiff-generated samples", fontsize=14)
+-        fig.tight_layout(rect=[0, 0, 1, 0.96])
+-        fig.savefig(path, dpi=self.figure_dpi, bbox_inches="tight")
+-        plt.close(fig)
+-
+-    def _plot_correlations(self, truth_pool, sample_pool, path):
+-        import matplotlib
+-        matplotlib.use("Agg")
+-        import matplotlib.pyplot as plt
+-
+-        rng = np.random.default_rng(self.plot_seed)
+-        real = truth_pool.reshape(-1, self.dataset.num_features)
+-        # Preserve cross-variable alignment for each generated ensemble member.
+-        gen = sample_pool.transpose(0, 1, 3, 2).reshape(-1, self.dataset.num_features)
+-        if real.shape[0] > 100000:
+-            real = real[rng.choice(real.shape[0], 100000, replace=False)]
+-        if gen.shape[0] > 100000:
+-            gen = gen[rng.choice(gen.shape[0], 100000, replace=False)]
+-        corr_gen = np.corrcoef(gen, rowvar=False)
+-        corr_real = np.corrcoef(real, rowvar=False)
+-
+-        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+-        for ax, corr, title in [
+-            (axes[0], corr_gen, "Generated data"),
+-            (axes[1], corr_real, "Real data"),
+-        ]:
+-            im = ax.imshow(corr, vmin=-1, vmax=1, cmap="RdBu")
+-            ax.set_xticks(range(len(FEATURE_NAMES)), FEATURE_NAMES, rotation=30, ha="right")
+-            ax.set_yticks(range(len(FEATURE_NAMES)), FEATURE_NAMES)
+-            ax.set_title(f"Pearson correlation matrix ({title})")
+-            for r in range(corr.shape[0]):
+-                for c in range(corr.shape[1]):
+-                    ax.text(c, r, f"{corr[r, c]:.2f}", ha="center", va="center",
+-                            color="white" if abs(corr[r, c]) > 0.55 else "black", fontsize=11)
+-            fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+-        fig.suptitle("Pearson correlation matrices of real and NsDiff-generated samples", fontsize=14)
+-        fig.tight_layout(rect=[0, 0, 1, 0.95])
+-        fig.savefig(path, dpi=self.figure_dpi, bbox_inches="tight")
+-        plt.close(fig)
++    def _pu_base(self) -> np.ndarray:
++        """Per-variable p.u. base from the training split of the raw target series."""
++        raw = getattr(self.dataset, "targets", None)
++        if raw is None:
++            raw = getattr(self.dataset, "data", None)
++        if raw is None:
++            raise AttributeError("dataset exposes neither .targets nor .data for the p.u. base")
++        return compute_pu_base(np.asarray(raw), train_ratio=float(getattr(self, "train_ratio", 0.7)))
+ 
+     def run(self, seed=42) -> Dict[str, float]:
+         """Train with validation CRPS early stopping; test only once at the end."""
