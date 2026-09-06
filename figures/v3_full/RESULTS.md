@@ -92,3 +92,32 @@ Interpretation:
   so the remaining gap is a mean-estimator problem; the ablation ladder
   (`run_v3_ablation.sh`, especially V4 vs V0 and V6 vs V7) isolates whether the
   new mean architecture or the log1p PV domain costs the accuracy.
+
+## Ablation rungs run on CPU (seed 1; full table in `../v3_ablation/ablation_table.md`)
+
+| Variant | CRPS | QICE | MAE | RMSE | SlopeMAE | PICP95 | MPIW95 | Direct-mean MAE | PV MAE (orig.) | PV neg. rate | PV night W95 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| V0 current model | **0.1061** | **0.99 %** | **0.1477** | **0.2141** | 0.0909 | **0.900** | 0.710 | **0.1518** | 223 | 20.1 % | 849 |
+| V4 = V3 mean + slope loss, Variance V2, absolute diffusion | 0.1220 | 1.63 % | 0.1648 | 0.2466 | 0.0868 | 0.861 | 0.642 | 0.1609 | 227 | 21.9 % | 292 |
+| V6 = V4 + residual-NLL variance + residual diffusion | 0.1211 | 1.96 % | 0.1635 | 0.2495 | **0.0855** | 0.857 | **0.605** | 0.1609 | **208** | 23.1 % | 86 |
+| V7 = V6 + log1p PV (full V3) | 0.1312 | 2.78 % | 0.1778 | 0.3326 | 0.0946 | 0.805 | 0.646 | 0.1732 | 368 | **0.07 %** | **8.4** |
+
+What the ladder says (single seed, CPU budget, so differences below ~0.005 CRPS are not significant):
+
+1. **Mean architecture (V0 -> V4).** The staged V3 mean (d = 256, seasonal
+   baseline + horizon queries + TCN) has a slightly worse direct-mean MAE than
+   the d = 512 TimeXer mean (0.161 vs 0.152) and this propagates to CRPS.
+   The slope loss does what it was designed for (slope MAE 0.091 -> 0.087).
+   The mean stage overfits quickly (train loss keeps falling while validation
+   MAE stalls after ~12 epochs), so the next experiments should be
+   d = 384/512, stronger dropout or weight decay, and `joint_epochs > 0`.
+2. **Residual variance + residual diffusion (V4 -> V6).** Neutral on CRPS/MAE,
+   sharper intervals (MPIW95 0.642 -> 0.605), best PV MAE (208), and PV night
+   width shrinks from 292 to 86 - the residual scale is doing its job; it is
+   just not yet well calibrated (PICP95 0.86), consistent with only 10
+   variance/diffusion epochs.
+3. **log1p PV (V6 -> V7).** Removes negative PV samples and collapses the
+   night interval to 8 kW, but training in the log domain costs linear-scale
+   PV accuracy (208 -> 368 MAE) and 0.01 CRPS.  Plan section 15.2's GHI
+   daylight gate (`--pv_daylight_gate=True`, implemented) or a PV-only loss
+   weighting in linear units is the alternative to test next.
