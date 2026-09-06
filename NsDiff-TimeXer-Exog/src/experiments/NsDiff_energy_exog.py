@@ -169,6 +169,9 @@ class NsDiffEnergyExogForecast(NsDiffEnergyForecast):
     sample_minibatch: int = 0                 # 0 -> configs/nsdiff.yml testing.minisample
     # Debug / smoke tests only: evenly spaced subset of every split (0 = full data).
     max_windows_per_split: int = 0
+    # Evaluate-only: path to a best_prob_crps.pt bundle (skips training, re-runs
+    # validation-only calibration + final test + figures).
+    eval_checkpoint: str = ""
 
     # Validation-only post-hoc calibration. This does NOT use test labels.
     # It corrects systematic mean bias and over/under-dispersed ensemble spread.
@@ -1036,6 +1039,23 @@ class NsDiffEnergyExogForecast(NsDiffEnergyForecast):
             self.early_stopper(val["crps"], model={"model": self.model, "cond_pred_model": self.cond_pred_model, "cond_pred_model_g": self.cond_pred_model_g})
             if self.early_stopper.counter == 0:
                 self._save_stage_checkpoints(outdir, "prob")
+
+    def evaluate(self, seed=42) -> Dict[str, float]:
+        """Reload ``eval_checkpoint`` and redo calibration + final test + figures only."""
+        if not self.eval_checkpoint:
+            raise ValueError("evaluate requires --eval_checkpoint=<path to best_prob_crps.pt>")
+        self._setup_run(seed)
+        bundle = torch.load(self.eval_checkpoint, map_location=self.device)
+        self.model.load_state_dict(bundle["model"])
+        self.cond_pred_model.load_state_dict(bundle["cond_pred_model"])
+        self.cond_pred_model_g.load_state_dict(bundle["cond_pred_model_g"])
+        self._run_print = lambda *a, **k: print(*a, **k)
+        reproducible(seed)
+        self._fit_posthoc_calibration()
+        metrics, per_var, example, truth_pool, sample_pool = self._final_test_and_collect(seed)
+        print(f"best_test_results: {metrics}")
+        self._save_outputs(seed, metrics, per_var, example, truth_pool, sample_pool)
+        return metrics
 
     def run(self, seed=42) -> Dict[str, float]:
         if self.training_schedule == "joint":
