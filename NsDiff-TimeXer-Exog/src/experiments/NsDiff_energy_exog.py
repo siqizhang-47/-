@@ -264,7 +264,11 @@ class NsDiffEnergyExogForecast(NsDiffEnergyForecast):
 
         n_t, n_w, n_c = self.dataset.num_features, self.dataset.num_weather, self.dataset.num_time_features
         if self.estimator_variant == "v3":
-            dilations = tuple(int(d) for d in str(self.v3_tcn_dilations).split(",") if d.strip())
+            raw = self.v3_tcn_dilations
+            if isinstance(raw, (tuple, list)):
+                dilations = tuple(int(d) for d in raw)
+            else:
+                dilations = tuple(int(d) for d in str(raw).strip("()[] ").split(",") if d.strip())
             self.cond_pred_model = TimeXerExogenousMeanV3(
                 seq_len=self.windows,
                 pred_len=self.pred_len,
