@@ -51,3 +51,44 @@ timing error 1.9 h.
   (more epochs, `joint_epochs > 0`) is the next step.
 * Metrics are computed on the linear standardized scale of the raw targets so
   they remain comparable with `pv_transform=none` runs.
+
+## Phase-0 comparison with the current model (V0, `diagnose_phase0.sh`, seed 1, CPU)
+
+V0 = ExoMV-D (TimeXer-Exog mean d=512 + Variance V2, joint training, 10 epochs,
+CRPS checkpoint).  Outputs in `../phase0_current_model/`.
+
+| Metric (linear standardized scale) | V0 current | V7 full V3 |
+|---|---:|---:|
+| CRPS | **0.1061** | 0.1312 |
+| QICE | **0.99 %** | 2.78 % |
+| MAE (MC mean) | **0.1477** | 0.1778 |
+| RMSE (MC mean) | **0.2141** | 0.3326 |
+| Direct-mean MAE $f_\phi$ | **0.1518** | 0.1732 |
+| Slope MAE (MC mean) | **0.0909** | 0.0946 |
+| PICP 50 / 80 / 95 % | **0.50 / 0.78 / 0.90** | 0.42 / 0.66 / 0.81 |
+| MPIW 50 / 80 / 95 % | 0.233 / 0.454 / 0.710 | **0.227 / 0.429 / 0.646** |
+| MAE Electricity / PV / Cooling / Heat (orig. units) | **1057 / 223** / 544 / **0.27** | 1178 / 368 / **531** / 0.32 |
+| PV negative-sample rate (raw ensemble) | 20.1 % | **0.07 %** |
+| PV nighttime MAE (orig. units) | 96.7 | **5.2** |
+| PV nighttime 95 % PI width (orig. units) | 848.5 | **8.4** |
+| PV daytime peak timing error (h) | **1.11** | 1.93 |
+
+Variance-V2 diagnostic (plan section 13) on V0: `delta_log_var` is saturated at
+the lower bound (mean = -0.600, fraction below -0.95 x bound = 100 %) for all
+four variables, i.e. the bounded rolling-variance correction wants to shrink
+the variance further but cannot, which confirms the motivation for the
+residual-NLL variance.
+
+Interpretation:
+
+* The PV physical-support problem is solved by V3 (log1p domain + residual
+  scale): night intervals collapse to a few kW and no negative samples remain.
+* With the same CPU budget the V3 mean estimator generalises worse to the test
+  period than the d=512 TimeXer mean (direct MAE 0.173 vs 0.152), and the PV
+  MAE in linear units is the largest loss (368 vs 223), which is the expected
+  trade-off of optimising errors in the log1p domain.  The variance /
+  diffusion stage of V3 was also trained for only 6 epochs.
+* Both models fall in case B of plan section 10 (sample mean ~ direct mean),
+  so the remaining gap is a mean-estimator problem; the ablation ladder
+  (`run_v3_ablation.sh`, especially V4 vs V0 and V6 vs V7) isolates whether the
+  new mean architecture or the log1p PV domain costs the accuracy.

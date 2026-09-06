@@ -1,0 +1,8 @@
+metric,value,scale
+CRPS,0.10610449803830974,standardized
+QICE,0.009856722206262568,standardized
+ES,1.455828538745068,standardized
+VS,0.024792398449436957,standardized
+MAE,0.147732208757511,standardized
+VMAE,0.2835727550740741,standardized
+MSE,0.04584683516262295,standardized
