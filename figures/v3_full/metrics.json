@@ -1,0 +1,519 @@
+{
+  "dataset": "Energy4Exog-2018-2019",
+  "features": [
+    "Electricity",
+    "PV",
+    "Cooling",
+    "Heat"
+  ],
+  "window": 168,
+  "pred_len": 24,
+  "horizon": 1,
+  "n_samples": 100,
+  "standardized_metrics": {
+    "crps": 0.13555085822264948,
+    "qice": 0.05065402662070286,
+    "es": 2.108883379109116,
+    "vs": 0.03968463241868488,
+    "mae": 0.17753939805308896,
+    "vmae": 0.6823548436861185,
+    "mse": 0.11291607741502285
+  },
+  "per_variable_original_unit": {
+    "Electricity": {
+      "mae_original_unit": 1178.04603412573,
+      "mse_original_unit": 2547108.7737240256
+    },
+    "PV": {
+      "mae_original_unit": 366.94128215745593,
+      "mse_original_unit": 1116687.2443024034
+    },
+    "Cooling": {
+      "mae_original_unit": 530.871549722302,
+      "mse_original_unit": 564504.930767021
+    },
+    "Heat": {
+      "mae_original_unit": 0.31733825473188154,
+      "mse_original_unit": 0.19753179403599294
+    }
+  },
+  "note": "CRPS/MAE/MSE use the StandardScaler benchmark scale; QICE is calibration error. Per-variable MAE/MSE are also reported in original units.",
+  "estimator_variant": "v3",
+  "model_display_name": "ExoMV-D V3",
+  "weather_exogenous": [
+    "Temperature",
+    "Dew Point",
+    "Humidity",
+    "GHI"
+  ],
+  "time_exogenous": [
+    "hour_of_day",
+    "day_of_week",
+    "day_of_month",
+    "day_of_year"
+  ],
+  "future_weather_horizon": 24,
+  "future_weather_note": "The aligned future weather values in this dataset are used as known future weather inputs. Replace them with actual NWP forecast columns when available.",
+  "architecture_constraint": "Only f_phi/g_psi estimators (and the diffusion endpoint definition) are modified; the NsDiff denoiser is unchanged.",
+  "metric_definitions": {
+    "ES": "trajectory-level empirical Energy Score over the 24h x 4-variable vector; up to 50 ensemble members",
+    "VS": "Variogram Score with p=0.5 across unordered variable pairs at each horizon",
+    "VMAE": "MAE between calibrated ensemble variance and the 96h rolling-variance target, linear standardized scale",
+    "scale": "standardized metrics use the linear StandardScaler of the raw training targets, independent of pv_transform"
+  },
+  "posthoc_calibration": {
+    "enabled": true,
+    "validation_only": true,
+    "calibration_max_windows": 512,
+    "bias_strength": 1.0,
+    "spread_temperature_by_variable": {
+      "Electricity": 1.149999976158142,
+      "PV": 1.149999976158142,
+      "Cooling": 1.149999976158142,
+      "Heat": 1.149999976158142
+    },
+    "mean_bias_by_horizon_variable": [
+      [
+        -0.006928489077836275,
+        0.0010604201816022396,
+        0.012129605747759342,
+        0.06453020870685577
+      ],
+      [
+        -0.004206078592687845,
+        0.0008864875417202711,
+        0.015407654456794262,
+        0.05872718244791031
+      ],
+      [
+        -0.0012075724080204964,
+        0.0015081004239618778,
+        0.017331261187791824,
+        0.05731189250946045
+      ],
+      [
+        0.0013616010546684265,
+        0.0020169317722320557,
+        0.018931297585368156,
+        0.0600762665271759
+      ],
+      [
+        0.0005582636222243309,
+        0.0032278774306178093,
+        0.020302945747971535,
+        0.05778276175260544
+      ],
+      [
+        0.001003233715891838,
+        0.004558318294584751,
+        0.02199903130531311,
+        0.05487658828496933
+      ],
+      [
+        0.007964922115206718,
+        0.005405795760452747,
+        0.027891140431165695,
+        0.05433075129985809
+      ],
+      [
+        0.008324134163558483,
+        0.004981416743248701,
+        0.02819753624498844,
+        0.05049322918057442
+      ],
+      [
+        0.004843954928219318,
+        0.00638930406421423,
+        0.027302974835038185,
+        0.05022995546460152
+      ],
+      [
+        0.008027554489672184,
+        0.005652097053825855,
+        0.028546947985887527,
+        0.04594839736819267
+      ],
+      [
+        0.00733308307826519,
+        0.005551863927394152,
+        0.030378445982933044,
+        0.0489746555685997
+      ],
+      [
+        0.008380673825740814,
+        0.005576632916927338,
+        0.031742699444293976,
+        0.0451277419924736
+      ],
+      [
+        0.008728943765163422,
+        0.005616717040538788,
+        0.03411908447742462,
+        0.047680821269750595
+      ],
+      [
+        0.008785196579992771,
+        0.005009925924241543,
+        0.03485442325472832,
+        0.04325336962938309
+      ],
+      [
+        0.011158528737723827,
+        0.004649970680475235,
+        0.038223545998334885,
+        0.044989414513111115
+      ],
+      [
+        0.011722208000719547,
+        0.0027614417485892773,
+        0.0391189306974411,
+        0.04094405844807625
+      ],
+      [
+        0.016695858910679817,
+        0.003087385557591915,
+        0.04228685796260834,
+        0.04264962300658226
+      ],
+      [
+        0.017551928758621216,
+        0.001339757815003395,
+        0.04511765390634537,
+        0.03809770941734314
+      ],
+      [
+        0.020437711849808693,
+        0.00011726492084562778,
+        0.04617598280310631,
+        0.037649642676115036
+      ],
+      [
+        0.023673543706536293,
+        -0.00024394853971898556,
+        0.048331037163734436,
+        0.037954702973365784
+      ],
+      [
+        0.025935741141438484,
+        -0.0010812226682901382,
+        0.04833751544356346,
+        0.0314580574631691
+      ],
+      [
+        0.02620144560933113,
+        -0.003692653961479664,
+        0.04986494779586792,
+        0.034345291554927826
+      ],
+      [
+        0.028154300525784492,
+        -0.005670890212059021,
+        0.05085795745253563,
+        0.03182327002286911
+      ],
+      [
+        0.03179537504911423,
+        -0.005979317240417004,
+        0.052238963544368744,
+        0.027526143938302994
+      ]
+    ],
+    "enforce_nonnegative_outputs": true
+  },
+  "figure1_selection_policy": "best",
+  "v3_config": {
+    "mean_estimator": "TimeXerExogenousMeanV3",
+    "use_seasonal": true,
+    "use_horizon_query": true,
+    "use_local_tcn": true,
+    "seasonal_gate": "fixed",
+    "seasonal_daily_weight": 0.7,
+    "variance_estimator": "residual_v3",
+    "variance_loss": "residual_nll",
+    "diffusion_space": "residual",
+    "detach_mean_for_diffusion": true,
+    "detach_variance_for_diffusion": true,
+    "lambda_slope": 0.3,
+    "lambda_curve": 0.05,
+    "pv_transform": "log1p",
+    "pv_daylight_gate": false,
+    "training_schedule": "staged",
+    "mean_epochs": 40,
+    "mean_patience": 8,
+    "joint_epochs": 0,
+    "mean_stage_history": [
+      {
+        "epoch": 1,
+        "train_loss": 0.06149455977889596,
+        "val_mae": 0.16681626495975782,
+        "val_rmse": 0.2603433710349079,
+        "val_slope_mae": 0.08986783841223024
+      },
+      {
+        "epoch": 2,
+        "train_loss": 0.04883247752866102,
+        "val_mae": 0.1448715157722126,
+        "val_rmse": 0.2171845259175392,
+        "val_slope_mae": 0.08700038934277364
+      },
+      {
+        "epoch": 3,
+        "train_loss": 0.04283294693699905,
+        "val_mae": 0.14725931867000477,
+        "val_rmse": 0.22093891089536807,
+        "val_slope_mae": 0.08604690195056232
+      },
+      {
+        "epoch": 4,
+        "train_loss": 0.03847583252739496,
+        "val_mae": 0.14510904800370178,
+        "val_rmse": 0.22515180828591438,
+        "val_slope_mae": 0.08925165358939163
+      },
+      {
+        "epoch": 5,
+        "train_loss": 0.034114055138416394,
+        "val_mae": 0.1413159028445454,
+        "val_rmse": 0.21396809480720072,
+        "val_slope_mae": 0.08773784430970022
+      },
+      {
+        "epoch": 6,
+        "train_loss": 0.030384706525457283,
+        "val_mae": 0.1470965579660591,
+        "val_rmse": 0.22327953570081674,
+        "val_slope_mae": 0.08865007136044158
+      },
+      {
+        "epoch": 7,
+        "train_loss": 0.027614794213265653,
+        "val_mae": 0.15226316008467608,
+        "val_rmse": 0.23444785413817648,
+        "val_slope_mae": 0.08970469793195526
+      },
+      {
+        "epoch": 8,
+        "train_loss": 0.02537258781453289,
+        "val_mae": 0.13841928085173993,
+        "val_rmse": 0.2077460765015576,
+        "val_slope_mae": 0.08847520912398331
+      },
+      {
+        "epoch": 9,
+        "train_loss": 0.023323577124053838,
+        "val_mae": 0.14214917558315565,
+        "val_rmse": 0.22465626388533388,
+        "val_slope_mae": 0.08972195516956531
+      },
+      {
+        "epoch": 10,
+        "train_loss": 0.021788932861040826,
+        "val_mae": 0.1388081245186105,
+        "val_rmse": 0.21094201859560197,
+        "val_slope_mae": 0.08842553731964524
+      },
+      {
+        "epoch": 11,
+        "train_loss": 0.021074323429573306,
+        "val_mae": 0.14027339749789455,
+        "val_rmse": 0.21076020229512205,
+        "val_slope_mae": 0.08843915999141042
+      },
+      {
+        "epoch": 12,
+        "train_loss": 0.019867071825222522,
+        "val_mae": 0.13803444730079492,
+        "val_rmse": 0.204944625340943,
+        "val_slope_mae": 0.08754644593687214
+      },
+      {
+        "epoch": 13,
+        "train_loss": 0.018623902691557767,
+        "val_mae": 0.14111292470230036,
+        "val_rmse": 0.2117162709865534,
+        "val_slope_mae": 0.08971804771765797
+      },
+      {
+        "epoch": 14,
+        "train_loss": 0.01785835489216778,
+        "val_mae": 0.14125906598345034,
+        "val_rmse": 0.21395672539528812,
+        "val_slope_mae": 0.09026019411396158
+      },
+      {
+        "epoch": 15,
+        "train_loss": 0.016428733633821288,
+        "val_mae": 0.14645899668212384,
+        "val_rmse": 0.21963980942642655,
+        "val_slope_mae": 0.09119862120041265
+      },
+      {
+        "epoch": 16,
+        "train_loss": 0.015879057926771346,
+        "val_mae": 0.14345799793001082,
+        "val_rmse": 0.22343924409137345,
+        "val_slope_mae": 0.09392635720434507
+      },
+      {
+        "epoch": 17,
+        "train_loss": 0.01433874934507662,
+        "val_mae": 0.14172426999729906,
+        "val_rmse": 0.2168949760804213,
+        "val_slope_mae": 0.0923980697530442
+      },
+      {
+        "epoch": 18,
+        "train_loss": 0.012898020197455057,
+        "val_mae": 0.1440046957652877,
+        "val_rmse": 0.22189800748072522,
+        "val_slope_mae": 0.09316066949551642
+      },
+      {
+        "epoch": 19,
+        "train_loss": 0.013144089569332738,
+        "val_mae": 0.147048349127228,
+        "val_rmse": 0.22526476367008272,
+        "val_slope_mae": 0.09186909074476601
+      },
+      {
+        "epoch": 20,
+        "train_loss": 0.01168526709326124,
+        "val_mae": 0.14374026330376444,
+        "val_rmse": 0.22743032549131323,
+        "val_slope_mae": 0.09337946913392045
+      }
+    ],
+    "best_val_mean_mae": 0.13803444730079492
+  },
+  "variance_v2": {
+    "enabled": false,
+    "max_log_correction": 1.0,
+    "formula": "g_v2 = g_base * exp(max_log_correction * tanh(delta_raw))"
+  },
+  "diagnostics": {
+    "scale_note": "Metric-scale values use the linear StandardScaler of the raw targets (comparable across pv_transform settings).",
+    "direct_mean_mae": 0.17318495911427706,
+    "mc_mean_mae": 0.17753939889210868,
+    "direct_mean_rmse": 0.3078618159007344,
+    "mc_mean_rmse": 0.3360298774760159,
+    "direct_mean_mae_by_variable": {
+      "Electricity": 0.2234215394388747,
+      "PV": 0.16699159851958215,
+      "Cooling": 0.11313168993172468,
+      "Heat": 0.18919500856692678
+    },
+    "mc_mean_mae_by_variable": {
+      "Electricity": 0.22379684393449065,
+      "PV": 0.17705121579599897,
+      "Cooling": 0.11770753407060534,
+      "Heat": 0.19160200176733977
+    },
+    "direct_mean_mae_original_unit": {
+      "Electricity": 1176.0704602514843,
+      "PV": 346.09257949029853,
+      "Cooling": 510.2340874456873,
+      "Heat": 0.31335170047785216
+    },
+    "mc_mean_mae_original_unit": {
+      "Electricity": 1178.04603412573,
+      "PV": 366.94128215745593,
+      "Cooling": 530.871549722302,
+      "Heat": 0.31733825473188154
+    },
+    "slope_mae_direct": 0.09178922763689767,
+    "slope_mae_mc": 0.09448291026636035,
+    "slope_mae_by_variable_mc": {
+      "Electricity": 0.10589017072707892,
+      "PV": 0.11457915249094548,
+      "Cooling": 0.04909929800311704,
+      "Heat": 0.10836301984429998
+    },
+    "peak_magnitude_error_direct": {
+      "Electricity": 0.21043456717148418,
+      "PV": 0.6176157374383389,
+      "Cooling": 0.11812618440747501,
+      "Heat": 0.19520654949913147
+    },
+    "peak_magnitude_error_mc": {
+      "Electricity": 0.2103338111101023,
+      "PV": 0.6930918167528494,
+      "Cooling": 0.1253105566543397,
+      "Heat": 0.20024424092723733
+    },
+    "peak_timing_error_hours_direct": {
+      "Electricity": 5.476874461361677,
+      "PV": 1.859810399310543,
+      "Cooling": 2.8419994254524563,
+      "Heat": 4.571674806090204
+    },
+    "peak_timing_error_hours_mc": {
+      "Electricity": 5.491238149956909,
+      "PV": 1.9120942257971847,
+      "Cooling": 3.0057454754380926,
+      "Heat": 4.551565642056881
+    },
+    "ramp_error_direct": {
+      "Electricity": 0.13040046240193717,
+      "PV": 0.2865079846987605,
+      "Cooling": 0.057598695788223214,
+      "Heat": 0.09248128695174286
+    },
+    "ramp_error_mc": {
+      "Electricity": 0.1301372991797226,
+      "PV": 0.3161603529129313,
+      "Cooling": 0.057703385636300335,
+      "Heat": 0.09199603922029434
+    },
+    "pv": {
+      "negative_sample_rate_raw_ensemble": 0.0007174662453318013,
+      "negative_sample_rate_calibrated": 0.0,
+      "nighttime_mae_original_unit": 5.213501260163347,
+      "nighttime_95pi_width_original_unit": 8.015681545754845,
+      "nighttime_hours": 43043,
+      "daytime_peak_timing_error_hours": 1.9120942257971847
+    },
+    "picp_50": 0.3237725031121325,
+    "mpiw_50": 0.16846779514509724,
+    "picp_50_by_variable": {
+      "Electricity": 0.28649573877238343,
+      "PV": 0.32765967633821697,
+      "Cooling": 0.31898161447859813,
+      "Heat": 0.3619529828593316
+    },
+    "mpiw_50_by_variable": {
+      "Electricity": 0.17817035128213454,
+      "PV": 0.1901744761640948,
+      "Cooling": 0.11435827331776753,
+      "Heat": 0.19116807981639214
+    },
+    "picp_80": 0.5467328593316098,
+    "mpiw_80": 0.31906698564682656,
+    "picp_80_by_variable": {
+      "Electricity": 0.4952121038015896,
+      "PV": 0.5369505889112324,
+      "Cooling": 0.5596452168916978,
+      "Heat": 0.595123527721919
+    },
+    "mpiw_80_by_variable": {
+      "Electricity": 0.3363159487990142,
+      "PV": 0.36349961571134987,
+      "Cooling": 0.21579074713504146,
+      "Heat": 0.36066163094190073
+    },
+    "picp_95": 0.7046705927415494,
+    "mpiw_95": 0.48066461502929236,
+    "picp_95_by_variable": {
+      "Electricity": 0.6556784448913148,
+      "PV": 0.6750095757923968,
+      "Cooling": 0.7395145073254812,
+      "Heat": 0.7484798429570046
+    },
+    "mpiw_95_by_variable": {
+      "Electricity": 0.5026582799902549,
+      "PV": 0.5576878320003028,
+      "Cooling": 0.32278506143744007,
+      "Heat": 0.5395272866891716
+    },
+    "phase0_verdict": "Case B: MAE(mu,Y) ~ MAE(MC mean,Y); improve the mean estimator first."
+  }
+}

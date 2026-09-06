@@ -1,0 +1,89 @@
+Warning: wandb is not installed, some funtionality may not work.
+Warning: wandb is not installed, some funtionality may not work.
+Energy4Exog split rows: train=12264, val=1752, test=3504  (pv_transform=log1p)
+Energy4Exog windows: train=12073, val=1729, test=3481
+/usr/local/lib/python3.11/dist-packages/torch/__init__.py:1700: UserWarning: torch.set_default_tensor_type() is deprecated as of PyTorch 2.1, please use torch.set_default_dtype() and torch.set_default_device() as alternatives. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/tensor/python_tensor.cpp:434.)
+  _C._set_default_tensor_type(t)
+/home/user/-/NsDiff-TimeXer-Exog/src/models/NsDiff.py:111: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.detach().clone() or sourceTensor.detach().clone().requires_grad_(True), rather than torch.tensor(sourceTensor).
+  assert (torch.tensor(self.betas_tilde) >= 0).all()
+Estimator variant: v3
+Variance estimator: residual_v3 | variance loss: residual_nll
+Diffusion space: residual | detach mean: True | detach variance: True
+Mean loss: MSE + 0.300*slope + 0.050*curvature
+Training schedule: staged | PV transform: log1p | PV daylight gate: False
+Target histories: ['Electricity', 'PV', 'Cooling', 'Heat']
+Weather exogenous variables: ['Temperature', 'Dew Point', 'Humidity', 'GHI']
+Time exogenous features: ['hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year']
+Future weather is supplied for the 24-step forecast horizon.
+NsDiff diffusion/denoising model is unchanged.
+Creating running results saving dir: './results/runs/ExoMV-D-V3/Energy4Exog/w168h1s24/f77d51a31520174ec2973b8ec0fe8841'.
+run : 0 in seed: 1 (staged schedule)
+model parameters: 44360
+cond_pred_model parameters: 3943060
+cond_pred_model_g parameters: 275073
+[mean] Epoch 1 cost 153.9s loss 0.06149 | val MAE 0.16682 RMSE 0.26034 SlopeMAE 0.08987
+[mean] new best val MAE 0.16682; saved best_mean_mae.pt
+[mean] Epoch 2 cost 167.2s loss 0.04883 | val MAE 0.14487 RMSE 0.21718 SlopeMAE 0.08700
+[mean] new best val MAE 0.14487; saved best_mean_mae.pt
+[mean] Epoch 3 cost 160.9s loss 0.04283 | val MAE 0.14726 RMSE 0.22094 SlopeMAE 0.08605
+[mean] Epoch 4 cost 155.2s loss 0.03848 | val MAE 0.14511 RMSE 0.22515 SlopeMAE 0.08925
+[mean] Epoch 5 cost 149.2s loss 0.03411 | val MAE 0.14132 RMSE 0.21397 SlopeMAE 0.08774
+[mean] new best val MAE 0.14132; saved best_mean_mae.pt
+[mean] Epoch 6 cost 156.6s loss 0.03038 | val MAE 0.14710 RMSE 0.22328 SlopeMAE 0.08865
+[mean] Epoch 7 cost 155.1s loss 0.02761 | val MAE 0.15226 RMSE 0.23445 SlopeMAE 0.08970
+[mean] Epoch 8 cost 153.0s loss 0.02537 | val MAE 0.13842 RMSE 0.20775 SlopeMAE 0.08848
+[mean] new best val MAE 0.13842; saved best_mean_mae.pt
+[mean] Epoch 9 cost 155.8s loss 0.02332 | val MAE 0.14215 RMSE 0.22466 SlopeMAE 0.08972
+[mean] Epoch 10 cost 158.5s loss 0.02179 | val MAE 0.13881 RMSE 0.21094 SlopeMAE 0.08843
+[mean] Epoch 11 cost 155.1s loss 0.02107 | val MAE 0.14027 RMSE 0.21076 SlopeMAE 0.08844
+[mean] Epoch 12 cost 163.0s loss 0.01987 | val MAE 0.13803 RMSE 0.20494 SlopeMAE 0.08755
+[mean] new best val MAE 0.13803; saved best_mean_mae.pt
+[mean] Epoch 13 cost 156.6s loss 0.01862 | val MAE 0.14111 RMSE 0.21172 SlopeMAE 0.08972
+[mean] Epoch 14 cost 161.0s loss 0.01786 | val MAE 0.14126 RMSE 0.21396 SlopeMAE 0.09026
+[mean] Epoch 15 cost 153.8s loss 0.01643 | val MAE 0.14646 RMSE 0.21964 SlopeMAE 0.09120
+[mean] Epoch 16 cost 159.5s loss 0.01588 | val MAE 0.14346 RMSE 0.22344 SlopeMAE 0.09393
+[mean] Epoch 17 cost 147.5s loss 0.01434 | val MAE 0.14172 RMSE 0.21689 SlopeMAE 0.09240
+[mean] Epoch 18 cost 153.7s loss 0.01290 | val MAE 0.14400 RMSE 0.22190 SlopeMAE 0.09316
+[mean] Epoch 19 cost 151.2s loss 0.01314 | val MAE 0.14705 RMSE 0.22526 SlopeMAE 0.09187
+[mean] Epoch 20 cost 156.2s loss 0.01169 | val MAE 0.14374 RMSE 0.22743 SlopeMAE 0.09338
+[mean] val MAE did not improve for 8 epochs; stopping stage 1.
+[prob] Epoch 1 cost 51.9s, loss 0.44777
+Validating .... 
+vali_results: {'crps': 0.10520708624144981, 'qice': 0.04195247734721419, 'es': 0.0, 'vs': 0.0, 'mae': 0.13874347418609878, 'vmae': 0.0, 'mse': 0.04524728945966904}
+Validation loss decreased (inf --> 0.105207).  Saving model ...
+[prob] Epoch 2 cost 56.6s, loss 0.11612
+Validating .... 
+vali_results: {'crps': 0.10604582111316539, 'qice': 0.05111480624638519, 'es': 0.0, 'vs': 0.0, 'mae': 0.1379582170854535, 'vmae': 0.0, 'mse': 0.04225272337825445}
+EarlyStopping counter: 1 out of 5
+[prob] Epoch 3 cost 50.8s, loss 0.07077
+Validating .... 
+vali_results: {'crps': 0.10552543138570585, 'qice': 0.05010507036822827, 'es': 0.0, 'vs': 0.0, 'mae': 0.13770256844333584, 'vmae': 0.0, 'mse': 0.041965533588717206}
+EarlyStopping counter: 2 out of 5
+[prob] Epoch 4 cost 51.7s, loss 0.04511
+Validating .... 
+vali_results: {'crps': 0.10540880636601681, 'qice': 0.04723732407942934, 'es': 0.0, 'vs': 0.0, 'mae': 0.137662904120512, 'vmae': 0.0, 'mse': 0.04183756043415941}
+EarlyStopping counter: 3 out of 5
+[prob] Epoch 5 cost 53.2s, loss 0.02926
+Validating .... 
+vali_results: {'crps': 0.106654471978301, 'qice': 0.053671679197994995, 'es': 0.0, 'vs': 0.0, 'mae': 0.13779391662357904, 'vmae': 0.0, 'mse': 0.04186395964963555}
+EarlyStopping counter: 4 out of 5
+[prob] Epoch 6 cost 53.2s, loss 0.01389
+Validating .... 
+vali_results: {'crps': 0.10629111244564965, 'qice': 0.050152062849431266, 'es': 0.0, 'vs': 0.0, 'mae': 0.13798109557050856, 'vmae': 0.0, 'mse': 0.042000431924374644}
+EarlyStopping counter: 5 out of 5
+val CRPS did not decrease for patience=5 epochs; early stopping.
+Validation-only calibration fitted:
+  spread temperatures: {'Electricity': 1.15, 'PV': 1.15, 'Cooling': 1.15, 'Heat': 1.15}
+  mean |bias| by variable: {'Electricity': 0.012124, 'PV': 0.003586, 'Cooling': 0.033737, 'Heat': 0.046116}
+best_test_results: {'crps': 0.13555085822264948, 'qice': 0.05065402662070286, 'es': 2.108883379109116, 'vs': 0.03968463241868488, 'mae': 0.17753939805308896, 'vmae': 0.6823548436861185, 'mse': 0.11291607741502285}
+
+Saved Energy4 analysis to: ./energy4_exog_outputs/v3_full/seed_1
+Phase-0 diagnostics: Case B: MAE(mu,Y) ~ MAE(MC mean,Y); improve the mean estimator first.
+crps: 0.13555085822264948
+qice: 0.05065402662070286
+es:   2.108883379109116
+vs:   0.03968463241868488
+mae:  0.17753939805308896
+vmae: 0.6823548436861185
+mse:  0.11291607741502285
+Done. Outputs: ./energy4_exog_outputs/v3_full/seed_*/{metrics.json,diagnostics.json,fig1_prediction_intervals.png,fig2_marginal_pdfs.png,fig3_pearson_correlation.png}

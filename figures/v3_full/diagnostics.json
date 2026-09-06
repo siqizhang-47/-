@@ -1,0 +1,126 @@
+{
+  "scale_note": "Metric-scale values use the linear StandardScaler of the raw targets (comparable across pv_transform settings).",
+  "direct_mean_mae": 0.17318495911427706,
+  "mc_mean_mae": 0.17753939889210868,
+  "direct_mean_rmse": 0.3078618159007344,
+  "mc_mean_rmse": 0.3360298774760159,
+  "direct_mean_mae_by_variable": {
+    "Electricity": 0.2234215394388747,
+    "PV": 0.16699159851958215,
+    "Cooling": 0.11313168993172468,
+    "Heat": 0.18919500856692678
+  },
+  "mc_mean_mae_by_variable": {
+    "Electricity": 0.22379684393449065,
+    "PV": 0.17705121579599897,
+    "Cooling": 0.11770753407060534,
+    "Heat": 0.19160200176733977
+  },
+  "direct_mean_mae_original_unit": {
+    "Electricity": 1176.0704602514843,
+    "PV": 346.09257949029853,
+    "Cooling": 510.2340874456873,
+    "Heat": 0.31335170047785216
+  },
+  "mc_mean_mae_original_unit": {
+    "Electricity": 1178.04603412573,
+    "PV": 366.94128215745593,
+    "Cooling": 530.871549722302,
+    "Heat": 0.31733825473188154
+  },
+  "slope_mae_direct": 0.09178922763689767,
+  "slope_mae_mc": 0.09448291026636035,
+  "slope_mae_by_variable_mc": {
+    "Electricity": 0.10589017072707892,
+    "PV": 0.11457915249094548,
+    "Cooling": 0.04909929800311704,
+    "Heat": 0.10836301984429998
+  },
+  "peak_magnitude_error_direct": {
+    "Electricity": 0.21043456717148418,
+    "PV": 0.6176157374383389,
+    "Cooling": 0.11812618440747501,
+    "Heat": 0.19520654949913147
+  },
+  "peak_magnitude_error_mc": {
+    "Electricity": 0.2103338111101023,
+    "PV": 0.6930918167528494,
+    "Cooling": 0.1253105566543397,
+    "Heat": 0.20024424092723733
+  },
+  "peak_timing_error_hours_direct": {
+    "Electricity": 5.476874461361677,
+    "PV": 1.859810399310543,
+    "Cooling": 2.8419994254524563,
+    "Heat": 4.571674806090204
+  },
+  "peak_timing_error_hours_mc": {
+    "Electricity": 5.491238149956909,
+    "PV": 1.9120942257971847,
+    "Cooling": 3.0057454754380926,
+    "Heat": 4.551565642056881
+  },
+  "ramp_error_direct": {
+    "Electricity": 0.13040046240193717,
+    "PV": 0.2865079846987605,
+    "Cooling": 0.057598695788223214,
+    "Heat": 0.09248128695174286
+  },
+  "ramp_error_mc": {
+    "Electricity": 0.1301372991797226,
+    "PV": 0.3161603529129313,
+    "Cooling": 0.057703385636300335,
+    "Heat": 0.09199603922029434
+  },
+  "pv": {
+    "negative_sample_rate_raw_ensemble": 0.0007174662453318013,
+    "negative_sample_rate_calibrated": 0.0,
+    "nighttime_mae_original_unit": 5.213501260163347,
+    "nighttime_95pi_width_original_unit": 8.015681545754845,
+    "nighttime_hours": 43043,
+    "daytime_peak_timing_error_hours": 1.9120942257971847
+  },
+  "picp_50": 0.3237725031121325,
+  "mpiw_50": 0.16846779514509724,
+  "picp_50_by_variable": {
+    "Electricity": 0.28649573877238343,
+    "PV": 0.32765967633821697,
+    "Cooling": 0.31898161447859813,
+    "Heat": 0.3619529828593316
+  },
+  "mpiw_50_by_variable": {
+    "Electricity": 0.17817035128213454,
+    "PV": 0.1901744761640948,
+    "Cooling": 0.11435827331776753,
+    "Heat": 0.19116807981639214
+  },
+  "picp_80": 0.5467328593316098,
+  "mpiw_80": 0.31906698564682656,
+  "picp_80_by_variable": {
+    "Electricity": 0.4952121038015896,
+    "PV": 0.5369505889112324,
+    "Cooling": 0.5596452168916978,
+    "Heat": 0.595123527721919
+  },
+  "mpiw_80_by_variable": {
+    "Electricity": 0.3363159487990142,
+    "PV": 0.36349961571134987,
+    "Cooling": 0.21579074713504146,
+    "Heat": 0.36066163094190073
+  },
+  "picp_95": 0.7046705927415494,
+  "mpiw_95": 0.48066461502929236,
+  "picp_95_by_variable": {
+    "Electricity": 0.6556784448913148,
+    "PV": 0.6750095757923968,
+    "Cooling": 0.7395145073254812,
+    "Heat": 0.7484798429570046
+  },
+  "mpiw_95_by_variable": {
+    "Electricity": 0.5026582799902549,
+    "PV": 0.5576878320003028,
+    "Cooling": 0.32278506143744007,
+    "Heat": 0.5395272866891716
+  },
+  "phase0_verdict": "Case B: MAE(mu,Y) ~ MAE(MC mean,Y); improve the mean estimator first."
+}
